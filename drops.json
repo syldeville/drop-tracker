@@ -1,0 +1,30 @@
+{
+ "drops": [],
+ "checked": "2026-09-29T20:38:03.362Z",
+ "status": {
+  "The Ragged Priest": {
+   "ok": true,
+   "count": 181
+  },
+  "Damson Madder": {
+   "ok": true,
+   "count": 372
+  },
+  "Lucy & Yak": {
+   "ok": true,
+   "count": 953
+  },
+  "Peachy Den": {
+   "ok": false,
+   "error": "HTTP 403"
+  },
+  "Dr. Martens": {
+   "ok": true,
+   "count": 993
+  },
+  "SKIMS": {
+   "ok": true,
+   "count": 3754
+  }
+ }
+}

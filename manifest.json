@@ -1,0 +1,9 @@
+{
+  "name": "Drops",
+  "short_name": "Drops",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f1ea",
+  "theme_color": "#f6f1ea",
+  "icons": [{ "src": "icon.png", "sizes": "180x180", "type": "image/png" }]
+}
