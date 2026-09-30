@@ -84,8 +84,8 @@
   .item .meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
   .item .price { color: var(--ink); font-weight: 600; }
   .empty { padding: 56px 0; max-width: 30ch; }
-  .empty p:first-child { font: italic 400 26px/1.15 var(--serif); margin: 0 0 8px; }
-  .empty p { margin: 0; color: var(--muted); }
+  .empty p:first-child { font: italic 400 26px/1.15 var(--serif); margin: 0 0 8px; color: var(--ink); }
+  .empty p + p { margin: 0; color: var(--muted); }
 
   /* Bottom tab bar */
   .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex;
@@ -117,6 +117,7 @@
 <div class="tabbar" role="tablist">
   <button role="tab" aria-selected="true" data-tab="drops">Shops</button>
   <button role="tab" aria-selected="false" data-tab="vinted">Vinted</button>
+  <button role="tab" aria-selected="false" data-tab="ebay">eBay</button>
 </div>
 
 <script>
@@ -146,6 +147,11 @@ fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
     document.querySelectorAll('[data-brand]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.brand || null) === brand));
 
+    if (tab === 'ebay') {
+      $('notice').hidden = true;
+      $('list').innerHTML = '<div class="empty"><p>Under construction.</p><p>eBay listings for your brands are coming soon.</p></div>';
+      return;
+    }
     const down = Object.entries(d.status).filter(([b, s]) => (!brand || b === brand) && (tab === 'drops' ? !s.ok : s.vinted === false)).map(([b]) => b);
     $('notice').hidden = !down.length;
     $('notice').textContent = `Couldn’t check ${down.join(' or ')}${tab === 'vinted' ? ' on Vinted' : ''} today. It’ll try again tomorrow.`;
