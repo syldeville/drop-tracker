@@ -10,6 +10,12 @@ const BRANDS = [
   { name: 'Peachy Den', shopify: 'https://www.peachyden.co.uk', vinted: 4394528 },
   { name: 'Dr. Martens', sitemap: 'https://www.drmartens.com/uk/en_gb/sitemap/products.xml', vinted: 309 },
   { name: 'SKIMS', sitemap: 'https://skims.com/sitemap-products.xml', vinted: 590677 },
+  // No shop of their own that sells clothes (JPG's site is perfume only), so Vinted only.
+  { name: 'Galliano', vinted: [10613, 7011975] },
+  { name: 'Jean Paul Gaultier', vinted: 4129 },
+  { name: 'Marine Serre', next: ['https://www.marineserre.com/en/collection/new-in-women', 'https://www.marineserre.com/en/collection/new-in-men'], cur: '€', vinted: 780179 },
+  { name: 'Moschino', shopify: 'https://www.moschino.com', cur: '€', vinted: 11925 },
+  { name: 'KNWLS', shopify: 'https://knwls.com', vinted: 6490707 },
 ];
 const UA = { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15' };
 
@@ -43,9 +49,28 @@ async function fetchSitemap(url) {
   });
 }
 
+// Marine Serre's shop is a Next.js front end; each collection page embeds its products as JSON.
+async function fetchNext(urls) {
+  const items = [];
+  for (const url of urls) {
+    const html = await (await get(url)).text();
+    const json = html.match(/<script id="__NEXT_DATA__"[^>]*>(.*?)<\/script>/s)?.[1];
+    if (!json) throw new Error('page layout changed');
+    for (const p of JSON.parse(json).props.pageProps.collection.products) items.push({
+      id: p.id,
+      title: p.title.charAt(0) + p.title.slice(1).toLowerCase(),
+      url: `${new URL(url).origin}/en/products/${p.handle}`,
+      image: p.images[0]?.url,
+      price: Number(p.priceRange.minVariantPrice.amount).toFixed(2),
+    });
+  }
+  return items;
+}
+
 // Vinted has no public API; its catalog page embeds the newest ~48 listings as escaped JSON.
-async function fetchVinted(brandId) {
-  const html = await (await get(`https://www.vinted.co.uk/catalog?brand_ids[]=${brandId}&order=newest_first`)).text();
+async function fetchVinted(brandIds) {
+  const ids = [brandIds].flat().map(id => `brand_ids[]=${id}`).join('&');
+  const html = await (await get(`https://www.vinted.co.uk/catalog?${ids}&order=newest_first`)).text();
   const items = new Map();
   for (const chunk of html.replaceAll('\\"', '"').split('"productItem":{').slice(1)) {
     const m = chunk.match(/^"id":(\d+),"title":"(.*?)","url":"([^"]+)"/);
@@ -81,10 +106,14 @@ function diff(key, items, brand, keep = Infinity) {
 
 for (const b of BRANDS) {
   try {
-    const items = b.shopify ? await fetchShopify(b.shopify) : await fetchSitemap(b.sitemap);
-    if (!items.length) throw new Error('no products found');
-    fresh.push(...diff(b.name, items, b.name));
-    status[b.name] = { ok: true, count: items.length };
+    if (!b.shopify && !b.sitemap && !b.next) status[b.name] = { ok: true, noShop: true };
+    else {
+      const items = b.shopify ? await fetchShopify(b.shopify) : b.next ? await fetchNext(b.next) : await fetchSitemap(b.sitemap);
+      if (!items.length) throw new Error('no products found');
+      if (b.cur) for (const it of items) it.cur = b.cur;
+      fresh.push(...diff(b.name, items, b.name));
+      status[b.name] = { ok: true, count: items.length };
+    }
   } catch (e) {
     status[b.name] = { ok: false, error: e.message };
   }
@@ -105,8 +134,10 @@ for (const b of BRANDS) {
 feed.checked = now;
 feed.status = status;
 feed.drops = [...fresh, ...feed.drops].slice(0, 300);
-// Newest first (Vinted ids increase over time), deduped, capped.
-feed.vinted = [...new Map(feed.vinted.map(v => [v.id, v])).values()].sort((a, b) => b.id - a.id).slice(0, 400);
+// Newest first (Vinted ids increase over time), deduped, capped per brand so busy brands don't crowd out quiet ones.
+const perBrand = {};
+feed.vinted = [...new Map(feed.vinted.map(v => [v.id, v])).values()].sort((a, b) => b.id - a.id)
+  .filter(v => (perBrand[v.brand] = (perBrand[v.brand] || 0) + 1) <= 60);
 fs.writeFileSync('seen.json', JSON.stringify(seen));
 fs.writeFileSync('drops.json', JSON.stringify(feed, null, 1));
 console.log(`${fresh.length} new, ${freshVinted.length} new on Vinted`);

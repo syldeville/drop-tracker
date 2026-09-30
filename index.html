@@ -137,7 +137,7 @@ fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
     const img = x.image && (tab === 'drops' ? x.image + '&width=500' : x.image);
     const photo = img ? `<div class="photo"><img src="${esc(img)}" loading="lazy" alt=""></div>`
                       : `<div class="photo text">${esc(x.title)}</div>`;
-    const meta = [x.price && `<span class="price">£${esc(x.price)}</span>`, x.detail && esc(x.detail)].filter(Boolean).join(', ');
+    const meta = [x.price && `<span class="price">${tab === 'drops' ? esc(x.cur || '£') : '£'}${esc(x.price)}</span>`, x.detail && esc(x.detail)].filter(Boolean).join(', ');
     return `<a class="item" href="${esc(x.url)}" target="_blank" rel="noopener">${photo}
       <div class="brand">${esc(x.brand)}</div>${img ? `<div class="title">${esc(x.title)}</div>` : ''}
       ${meta ? `<div class="meta">${meta}</div>` : ''}</a>`;
@@ -156,6 +156,10 @@ fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
     $('notice').hidden = !down.length;
     $('notice').textContent = `Couldn’t check ${down.join(' or ')}${tab === 'vinted' ? ' on Vinted' : ''} today. It’ll try again tomorrow.`;
 
+    if (tab === 'drops' && brand && d.status[brand]?.noShop) {
+      $('list').innerHTML = `<div class="empty"><p>No shop to check.</p><p>${esc(brand)} doesn’t sell clothes on its own website. Look in the Vinted tab instead.</p></div>`;
+      return;
+    }
     const items = (d[tab] || []).filter(x => !brand || x.brand === brand);
     if (!items.length) {
       const who = brand || 'your brands';
