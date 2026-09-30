@@ -32,7 +32,28 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   /* Masthead: the one loud thing on the page */
-  header { padding: calc(env(safe-area-inset-top) + 20px) var(--gutter) 12px; }
+  header { position: relative; padding: calc(env(safe-area-inset-top) + 20px) var(--gutter) 12px; }
+
+  /* Notification bell + popover */
+  .bell { position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: calc(var(--gutter) - 10px);
+    width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink); }
+  .bell svg { width: 24px; height: 24px; transform-origin: 50% 3px; }
+  .bell .fill { fill: transparent; transition: fill .25s; }
+  .bell[aria-pressed=true] .fill { fill: currentColor; }
+  .bell::after { content: ''; position: absolute; top: 11px; right: 11px; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); transform: scale(0); transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+  .bell[aria-pressed=true]::after { transform: scale(1); }
+  .bell.ring svg { animation: ring .8s ease-in-out; }
+  @keyframes ring { 0%, 100% { transform: rotate(0) } 15% { transform: rotate(22deg) } 30% { transform: rotate(-18deg) }
+    45% { transform: rotate(12deg) } 60% { transform: rotate(-8deg) } 75% { transform: rotate(4deg) } }
+  .pop { position: absolute; z-index: 4; top: calc(env(safe-area-inset-top) + 62px); right: var(--gutter); width: min(270px, calc(100vw - 2 * var(--gutter)));
+    padding: 16px; background: var(--paper); border: 1px solid var(--ink); font-size: 13px; color: var(--muted);
+    transform-origin: calc(100% - 22px) 0; animation: pop .22s ease-out; }
+  .pop[hidden] { display: none; }
+  .pop strong { display: block; font: italic 400 21px/1.15 var(--serif); color: var(--ink); margin-bottom: 4px; }
+  .pop button { margin-top: 12px; font-weight: 600; color: var(--accent); }
+  @keyframes pop { from { opacity: 0; transform: scale(.9) translateY(-4px); } }
+  @media (prefers-reduced-motion: reduce) { .bell.ring svg, .pop { animation: none; } }
   .masthead { font: italic 500 clamp(84px, 30vw, 160px)/0.82 var(--serif); letter-spacing: -0.045em; margin: 0 0 0 -0.04em; }
   .dateline { margin-top: 14px; padding-top: 10px;
     border-top: 1px solid var(--ink); font-size: 13px; color: var(--muted); }
@@ -48,11 +69,6 @@
 
   main { padding: 0 var(--gutter); }
   .notice { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
-  .notify { padding: 14px 0; border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
-  .notify[hidden] { display: none; }
-  .notify button { font-weight: 600; color: var(--accent); white-space: nowrap; }
-  .notify textarea { width: 100%; height: 96px; margin-top: 8px; font: 11px/1.3 ui-monospace, monospace; }
 
   h2 { display: flex; justify-content: space-between; align-items: baseline; margin: 32px 0 14px;
     font: italic 400 26px/1.1 var(--serif); letter-spacing: -0.01em; }
@@ -85,15 +101,16 @@
 <body>
 <header>
   <h1 class="masthead">Drops</h1>
+  <button class="bell" id="bell" aria-pressed="false" aria-label="Notifications" aria-controls="pop">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path class="fill" d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+    </svg>
+  </button>
+  <div class="pop" id="pop" role="status" hidden></div>
   <div class="dateline" id="checked">Loading…</div>
 </header>
 <nav class="brands" aria-label="Brands"><div class="brand-row" id="brands"></div></nav>
 <main>
-  <div class="notify" id="notify" hidden>
-    <div style="flex:1"><span id="notify-text">Get a notification when something new drops.</span>
-      <textarea id="sub" hidden readonly aria-label="Push subscription"></textarea></div>
-    <button id="notify-btn">Turn on</button>
-  </div>
   <p class="notice" id="notice" hidden></p>
   <div id="list"></div>
 </main>
@@ -153,24 +170,33 @@ fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
 }).catch(() => $('checked').textContent = 'Couldn’t load drops. Close and reopen the app to try again.');
 
 // Notifications: iOS only allows these once the page is added to the home screen.
-if ('serviceWorker' in navigator && 'PushManager' in window) {
+const pushable = 'serviceWorker' in navigator && 'PushManager' in window;
+if (pushable) {
   navigator.serviceWorker.register('sw.js');
-  $('notify').hidden = Notification.permission === 'granted';
-  $('notify-btn').onclick = async () => {
-    if (await Notification.requestPermission() !== 'granted') {
-      $('notify-text').textContent = 'Notifications are blocked. Turn them on in Settings, then try again.';
-      return;
-    }
-    const reg = await navigator.serviceWorker.ready;
-    const key = Uint8Array.from(atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-    $('notify-text').textContent = 'Copy this into the PUSH_SUBSCRIPTION secret on GitHub.';
-    $('sub').value = JSON.stringify(sub);
-    $('sub').hidden = false;
-    $('sub').select();
-    $('notify-btn').hidden = true;
-  };
+  $('bell').setAttribute('aria-pressed', Notification.permission === 'granted');
 }
+let sub = null;
+const showPop = (title, text, copy) => {
+  $('pop').innerHTML = `<strong>${title}</strong>${text}${copy ? '<button id="copy">Copy setup code</button>' : ''}`;
+  $('pop').hidden = false;
+  if (copy) $('copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(JSON.stringify(sub)); $('copy').textContent = 'Copied'; }
+    catch { $('copy').outerHTML = `<textarea readonly style="width:100%;height:80px;margin-top:10px;font:11px ui-monospace,monospace">${esc(JSON.stringify(sub))}</textarea>`; }
+  };
+};
+$('bell').onclick = async e => {
+  e.stopPropagation();
+  if (!$('pop').hidden) { $('pop').hidden = true; return; }
+  if (!pushable) return showPop('Add to Home Screen first', 'In Safari, tap Share, then Add to Home Screen. Open Drops from there to turn on notifications.');
+  if (await Notification.requestPermission() !== 'granted') return showPop('Notifications are off', 'Turn them on in Settings, Notifications, Drops, then tap the bell again.');
+  const reg = await navigator.serviceWorker.ready;
+  const key = Uint8Array.from(atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+  sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  $('bell').setAttribute('aria-pressed', true);
+  $('bell').classList.remove('ring'); void $('bell').offsetWidth; $('bell').classList.add('ring');
+  showPop('You’re on the list', 'You’ll get a notification when something new drops. First time on this phone? Copy the setup code into the PUSH_SUBSCRIPTION secret on GitHub.', true);
+};
+document.addEventListener('click', e => { if (!$('pop').contains(e.target)) $('pop').hidden = true; });
 </script>
 </body>
 </html>
