@@ -20,7 +20,8 @@
   h1 { font: 700 34px/1 Georgia, serif; letter-spacing: -0.02em; margin: 8px 0 4px; }
   .meta { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
-  .chip { font-size: 12px; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); }
+  .chip { width: auto; margin: 0; font-size: 12px; font-weight: 400; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+  .chip[aria-pressed=true] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
   .chip.bad { color: var(--bad); }
   button { font: inherit; font-weight: 600; width: 100%; padding: 12px; border: 0; border-radius: 12px; background: var(--fg); color: var(--bg); margin-bottom: 20px; }
   textarea { width: 100%; height: 110px; font: 11px ui-monospace, monospace; margin-bottom: 20px; }
@@ -40,13 +41,13 @@
 <body>
 <h1>Drops</h1>
 <div class="meta" id="meta">Loading…</div>
-<div class="chips" id="chips"></div>
 <button id="notify" hidden>Turn on notifications</button>
 <textarea id="sub" hidden readonly></textarea>
 <div class="tabs" role="tablist">
   <button role="tab" aria-selected="true" data-tab="drops">Shops</button>
   <button role="tab" aria-selected="false" data-tab="vinted">Vinted</button>
 </div>
+<div class="chips" id="chips"></div>
 <div id="list"></div>
 
 <script>
@@ -56,11 +57,14 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 
 fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
   $('meta').textContent = 'Last checked ' + new Date(d.checked).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
-  $('chips').innerHTML = Object.entries(d.status).map(([b, s]) =>
-    `<span class="chip ${s.ok && s.vinted !== false ? '' : 'bad'}">${esc(b)}${s.ok ? '' : ' · shop unavailable'}${s.vinted === false ? ' · Vinted unavailable' : ''}</span>`).join('');
-  const render = tab => {
+  let tab = 'drops', brand = null;
+  const render = () => {
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
-    const items = d[tab] || [];
+    $('chips').innerHTML = [[null, {}], ...Object.entries(d.status)].map(([b, s]) => {
+      const down = b && (tab === 'drops' ? !s.ok : s.vinted === false);
+      return `<button class="chip ${down ? 'bad' : ''}" aria-pressed="${b === brand}" data-brand="${esc(b ?? '')}">${esc(b ?? 'All')}${down ? ' · unavailable' : ''}</button>`;
+    }).join('');
+    const items = (d[tab] || []).filter(x => !brand || x.brand === brand);
     if (!items.length) { $('list').innerHTML = '<p class="empty">Nothing new yet. Check back tomorrow.</p>'; return; }
     let day = '';
     $('list').innerHTML = items.map(x => {
@@ -75,8 +79,9 @@ fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
         ${x.price ? `<div class="price">£${esc(x.price)}</div>` : ''}</div></a>`;
     }).join('');
   };
-  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => render(b.dataset.tab));
-  render('drops');
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+  $('chips').onclick = e => { const c = e.target.closest('.chip'); if (c) { brand = c.dataset.brand || null; render(); } };
+  render();
 }).catch(() => $('meta').textContent = 'Couldn’t load drops.');
 
 // Notifications: iOS only allows these once the page is added to the home screen.
