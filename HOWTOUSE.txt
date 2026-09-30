@@ -1,0 +1,64 @@
+DROPS - HOW TO USE
+
+
+INSTALL ON YOUR IPHONE
+
+1. Open https://syldeville.github.io/drop-tracker/ in Safari.
+2. Tap Share, then Add to Home Screen.
+3. Always open Drops from the home screen icon. Notifications only work there.
+
+
+TURN ON NOTIFICATIONS (one time)
+
+The daily check runs on GitHub, not on your phone. GitHub needs your
+phone's notification address (the "setup code") to know where to send them.
+
+1. On your iPhone, open Drops, tap the bell, and allow notifications.
+2. Tap Copy setup code. Do this on the phone, not your computer.
+3. On GitHub, open the drop-tracker repo, then
+   Settings > Secrets and variables > Actions > New repository secret.
+4. Name: PUSH_SUBSCRIPTION    Value: paste the setup code. Save.
+5. Add a second secret.
+   Name: VAPID_PRIVATE        Value: the private key you were given at setup.
+   Never put this key in a file in the repo.
+6. Test it: Actions > Check drops > Run workflow.
+
+Redo steps 1-4 if you delete and re-add the app or change phones.
+
+
+WHEN IT CHECKS
+
+Automatically every day at 08:00 UTC (9am UK summer, 8am winter).
+Nothing to run by hand. To check right now: Actions > Check drops > Run workflow.
+
+If the check fails at the push step:
+Settings > Actions > General > Workflow permissions > Read and write.
+
+
+USING THE APP
+
+Shops   New products from each brand's website, grouped by day.
+Vinted  Newest Vinted UK listings for each brand.
+Tap a brand name at the top to show only that brand. Tap All to show everything.
+Tap any item to open it.
+
+
+ADDING A BRAND
+
+Edit check.mjs on GitHub and add a line to the BRANDS list.
+Most indie brands: if theirsite.com/products.json shows product text, use
+  { name: 'Brand Name', shopify: 'https://theirsite.com', vinted: 12345 },
+The vinted number is in the brand's Vinted page address, e.g.
+vinted.co.uk/brand/1042718-lucy-yak is 1042718.
+The first check after adding only records what's already there. Only items
+added after that count as new.
+
+
+RUNNING ON YOUR COMPUTER (optional, for testing)
+
+  npm install
+  node check.mjs
+  python3 -m http.server 8000     then open http://localhost:8000
+
+Afterwards undo the test data so the daily check still notifies you:
+  git checkout drops.json seen.json
