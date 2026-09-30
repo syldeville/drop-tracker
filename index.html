@@ -8,95 +8,167 @@
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#f6f1ea">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #f6f1ea; --fg: #1d1a17; --muted: #8a8177; --card: #fff; --line: #e6ddd2; --accent: #c2410c; --bad: #b91c1c; }
+  :root {
+    --paper: #ffffff; --ink: #000000; --muted: #6e6a70; --line: #e7e3e8; --tile: #f3eef2; --accent: #6b2d5c;
+    --serif: 'Bodoni Moda', Didot, 'Times New Roman', serif;
+    --sans: 'Hanken Grotesk', -apple-system, system-ui, sans-serif;
+    --gutter: 16px;
+    color-scheme: light dark;
+  }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #141210; --fg: #f3ede6; --muted: #948b80; --card: #1f1c19; --line: #2e2a26; --accent: #fb923c; --bad: #f87171; }
+    :root { --paper: #000000; --ink: #f5f2f4; --muted: #9a949c; --line: #2a262a; --tile: #151215; --accent: #e3b3d3; }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 -apple-system, system-ui, sans-serif;
-    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
-  h1 { font: 700 34px/1 Georgia, serif; letter-spacing: -0.02em; margin: 8px 0 4px; }
-  .meta { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
-  .chip { width: auto; margin: 0; font-size: 12px; font-weight: 400; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
-  .chip[aria-pressed=true] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-  .chip.bad { color: var(--bad); }
-  button { font: inherit; font-weight: 600; width: 100%; padding: 12px; border: 0; border-radius: 12px; background: var(--fg); color: var(--bg); margin-bottom: 20px; }
-  textarea { width: 100%; height: 110px; font: 11px ui-monospace, monospace; margin-bottom: 20px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 24px 0 8px; }
-  a.item { display: flex; gap: 12px; align-items: center; padding: 10px; margin-bottom: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; color: inherit; text-decoration: none; }
-  a.item img, a.item .ph { width: 64px; height: 80px; object-fit: cover; border-radius: 8px; background: var(--line); flex: none; }
-  .brand { font-size: 12px; font-weight: 600; color: var(--accent); }
-  .title { font-weight: 500; }
-  .price { font-size: 13px; color: var(--muted); }
-  .tabs { display: flex; gap: 4px; padding: 4px; background: var(--line); border-radius: 12px; margin-bottom: 16px; }
-  .tabs button { margin: 0; padding: 8px; background: none; color: var(--muted); border-radius: 9px; }
-  .tabs button[aria-selected=true] { background: var(--card); color: var(--fg); }
-  .detail { font-size: 13px; color: var(--muted); }
-  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 var(--sans);
+    padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Masthead: the one loud thing on the page */
+  header { padding: calc(env(safe-area-inset-top) + 20px) var(--gutter) 12px; }
+  .masthead { font: italic 500 clamp(84px, 30vw, 160px)/0.82 var(--serif); letter-spacing: -0.045em; margin: 0 0 0 -0.04em; }
+  .dateline { margin-top: 14px; padding-top: 10px;
+    border-top: 1px solid var(--ink); font-size: 13px; color: var(--muted); }
+
+  /* Brand strip */
+  nav.brands { position: sticky; top: 0; z-index: 2; background: var(--paper);
+    padding-top: env(safe-area-inset-top); border-bottom: 1px solid var(--line); }
+  .brand-row { display: flex; gap: 22px; overflow-x: auto; padding: 12px var(--gutter); scrollbar-width: none; }
+  .brand-row::-webkit-scrollbar { display: none; }
+  .brand-row button { flex: none; font: 400 17px/1.2 var(--serif); color: var(--muted); padding: 4px 0; white-space: nowrap;
+    border-bottom: 1.5px solid transparent; }
+  .brand-row button[aria-pressed=true] { color: var(--ink); font-style: italic; border-color: var(--accent); }
+
+  main { padding: 0 var(--gutter); }
+  .notice { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+  .notify { padding: 14px 0; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .notify[hidden] { display: none; }
+  .notify button { font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .notify textarea { width: 100%; height: 96px; margin-top: 8px; font: 11px/1.3 ui-monospace, monospace; }
+
+  h2 { display: flex; justify-content: space-between; align-items: baseline; margin: 32px 0 14px;
+    font: italic 400 26px/1.1 var(--serif); letter-spacing: -0.01em; }
+  h2 span { font: 400 13px var(--sans); color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 12px; margin-top: 20px; }
+  h2 + .grid { margin-top: 0; }
+  .item { color: inherit; text-decoration: none; display: block; min-width: 0; }
+  .photo { aspect-ratio: 3 / 4; background: var(--tile); overflow: hidden; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo.text { display: flex; align-items: flex-end; padding: 12px; font: italic 400 19px/1.15 var(--serif); }
+  .item .brand { font: italic 400 15px/1.2 var(--serif); margin-top: 9px; }
+  .item .title { font-size: 13px; line-height: 1.35; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .item .meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .item .price { color: var(--ink); font-weight: 600; }
+  .empty { padding: 56px 0; max-width: 30ch; }
+  .empty p:first-child { font: italic 400 26px/1.15 var(--serif); margin: 0 0 8px; }
+  .empty p { margin: 0; color: var(--muted); }
+
+  /* Bottom tab bar */
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex;
+    padding: 6px var(--gutter) calc(6px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--paper) 88%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line); }
+  .tabbar button { flex: 1; padding: 12px 0; font: 400 20px/1 var(--serif); color: var(--muted); }
+  .tabbar button[aria-selected=true] { color: var(--ink); font-style: italic; }
+  .tabbar button[aria-selected=true]::after { content: ''; display: block; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent); margin: 7px auto 0; }
 </style>
 </head>
 <body>
-<h1>Drops</h1>
-<div class="meta" id="meta">Loading…</div>
-<button id="notify" hidden>Turn on notifications</button>
-<textarea id="sub" hidden readonly></textarea>
-<div class="tabs" role="tablist">
+<header>
+  <h1 class="masthead">Drops</h1>
+  <div class="dateline" id="checked">Loading…</div>
+</header>
+<nav class="brands" aria-label="Brands"><div class="brand-row" id="brands"></div></nav>
+<main>
+  <div class="notify" id="notify" hidden>
+    <div style="flex:1"><span id="notify-text">Get a notification when something new drops.</span>
+      <textarea id="sub" hidden readonly aria-label="Push subscription"></textarea></div>
+    <button id="notify-btn">Turn on</button>
+  </div>
+  <p class="notice" id="notice" hidden></p>
+  <div id="list"></div>
+</main>
+<div class="tabbar" role="tablist">
   <button role="tab" aria-selected="true" data-tab="drops">Shops</button>
   <button role="tab" aria-selected="false" data-tab="vinted">Vinted</button>
 </div>
-<div class="chips" id="chips"></div>
-<div id="list"></div>
 
 <script>
 const VAPID_PUBLIC = 'BKbdPatCQOooWLbwDa80TrJdYou5PkGeIshFQsHgvgGXU6p3ggj7c59Il7JjINbHXGN0XZmIRi99oqVVryrogew';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const dayName = iso => new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
 fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
-  $('meta').textContent = 'Last checked ' + new Date(d.checked).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  const t = new Date(d.checked);
+  const today = t.toDateString() === new Date().toDateString();
+  $('checked').textContent = `Checked ${today ? 'today' : dayName(d.checked)} at ${t.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })}`;
   let tab = 'drops', brand = null;
+
+  const card = x => {
+    // Shopify images accept a width param; Vinted's are signed and already small.
+    const img = x.image && (tab === 'drops' ? x.image + '&width=500' : x.image);
+    const photo = img ? `<div class="photo"><img src="${esc(img)}" loading="lazy" alt=""></div>`
+                      : `<div class="photo text">${esc(x.title)}</div>`;
+    const meta = [x.price && `<span class="price">£${esc(x.price)}</span>`, x.detail && esc(x.detail)].filter(Boolean).join(', ');
+    return `<a class="item" href="${esc(x.url)}" target="_blank" rel="noopener">${photo}
+      <div class="brand">${esc(x.brand)}</div>${img ? `<div class="title">${esc(x.title)}</div>` : ''}
+      ${meta ? `<div class="meta">${meta}</div>` : ''}</a>`;
+  };
+
   const render = () => {
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
-    $('chips').innerHTML = [[null, {}], ...Object.entries(d.status)].map(([b, s]) => {
-      const down = b && (tab === 'drops' ? !s.ok : s.vinted === false);
-      return `<button class="chip ${down ? 'bad' : ''}" aria-pressed="${b === brand}" data-brand="${esc(b ?? '')}">${esc(b ?? 'All')}${down ? ' · unavailable' : ''}</button>`;
-    }).join('');
+    document.querySelectorAll('[data-brand]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.brand || null) === brand));
+
+    const down = Object.entries(d.status).filter(([b, s]) => (!brand || b === brand) && (tab === 'drops' ? !s.ok : s.vinted === false)).map(([b]) => b);
+    $('notice').hidden = !down.length;
+    $('notice').textContent = `Couldn’t check ${down.join(' or ')}${tab === 'vinted' ? ' on Vinted' : ''} today. It’ll try again tomorrow.`;
+
     const items = (d[tab] || []).filter(x => !brand || x.brand === brand);
-    if (!items.length) { $('list').innerHTML = '<p class="empty">Nothing new yet. Check back tomorrow.</p>'; return; }
-    let day = '';
-    $('list').innerHTML = items.map(x => {
-      const dd = new Date(x.found).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
-      const head = tab === 'drops' && dd !== day ? `<h2>${esc(day = dd)}</h2>` : '';
-      // Shopify images accept a width param; Vinted's are signed and already small.
-      const img = x.image && (tab === 'drops' ? x.image + '&width=200' : x.image);
-      return head + `<a class="item" href="${esc(x.url)}" target="_blank" rel="noopener">
-        ${img ? `<img src="${esc(img)}" loading="lazy" alt="">` : '<div class="ph"></div>'}
-        <div><div class="brand">${esc(x.brand)}</div><div class="title">${esc(x.title)}</div>
-        ${x.detail ? `<div class="detail">${esc(x.detail)}</div>` : ''}
-        ${x.price ? `<div class="price">£${esc(x.price)}</div>` : ''}</div></a>`;
-    }).join('');
+    if (!items.length) {
+      const who = brand || 'your brands';
+      $('list').innerHTML = `<div class="empty"><p>Nothing new yet.</p><p>New ${tab === 'drops' ? 'arrivals' : 'Vinted listings'} from ${esc(who)} show up here after the daily check.</p></div>`;
+      return;
+    }
+    if (tab === 'vinted') { $('list').innerHTML = `<div class="grid">${items.map(card).join('')}</div>`; return; }
+    const days = {};
+    for (const x of items) (days[dayName(x.found)] ||= []).push(x);
+    $('list').innerHTML = Object.entries(days).map(([day, xs]) =>
+      `<h2>${esc(day)}<span>${xs.length} new</span></h2><div class="grid">${xs.map(card).join('')}</div>`).join('');
   };
-  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
-  $('chips').onclick = e => { const c = e.target.closest('.chip'); if (c) { brand = c.dataset.brand || null; render(); } };
+
+  $('brands').innerHTML = ['', ...Object.keys(d.status)].map(b => `<button data-brand="${esc(b)}">${esc(b || 'All')}</button>`).join('');
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); scrollTo(0, 0); });
+  $('brands').onclick = e => { const b = e.target.closest('button'); if (b) { brand = b.dataset.brand || null; render(); } };
   render();
-}).catch(() => $('meta').textContent = 'Couldn’t load drops.');
+}).catch(() => $('checked').textContent = 'Couldn’t load drops. Close and reopen the app to try again.');
 
 // Notifications: iOS only allows these once the page is added to the home screen.
 if ('serviceWorker' in navigator && 'PushManager' in window) {
   navigator.serviceWorker.register('sw.js');
-  $('notify').hidden = false;
-  $('notify').onclick = async () => {
-    if (await Notification.requestPermission() !== 'granted') return alert('Notifications were blocked. Enable them in Settings.');
+  $('notify').hidden = Notification.permission === 'granted';
+  $('notify-btn').onclick = async () => {
+    if (await Notification.requestPermission() !== 'granted') {
+      $('notify-text').textContent = 'Notifications are blocked. Turn them on in Settings, then try again.';
+      return;
+    }
     const reg = await navigator.serviceWorker.ready;
     const key = Uint8Array.from(atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    $('notify-text').textContent = 'Copy this into the PUSH_SUBSCRIPTION secret on GitHub.';
     $('sub').value = JSON.stringify(sub);
     $('sub').hidden = false;
     $('sub').select();
-    $('notify').textContent = 'Copy the text below into the PUSH_SUBSCRIPTION secret';
+    $('notify-btn').hidden = true;
   };
 }
 </script>
