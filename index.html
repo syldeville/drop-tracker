@@ -30,6 +30,10 @@
   .brand { font-size: 12px; font-weight: 600; color: var(--accent); }
   .title { font-weight: 500; }
   .price { font-size: 13px; color: var(--muted); }
+  .tabs { display: flex; gap: 4px; padding: 4px; background: var(--line); border-radius: 12px; margin-bottom: 16px; }
+  .tabs button { margin: 0; padding: 8px; background: none; color: var(--muted); border-radius: 9px; }
+  .tabs button[aria-selected=true] { background: var(--card); color: var(--fg); }
+  .detail { font-size: 13px; color: var(--muted); }
   .empty { color: var(--muted); text-align: center; padding: 40px 0; }
 </style>
 </head>
@@ -39,6 +43,10 @@
 <div class="chips" id="chips"></div>
 <button id="notify" hidden>Turn on notifications</button>
 <textarea id="sub" hidden readonly></textarea>
+<div class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="drops">Shops</button>
+  <button role="tab" aria-selected="false" data-tab="vinted">Vinted</button>
+</div>
 <div id="list"></div>
 
 <script>
@@ -49,17 +57,26 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
   $('meta').textContent = 'Last checked ' + new Date(d.checked).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   $('chips').innerHTML = Object.entries(d.status).map(([b, s]) =>
-    `<span class="chip ${s.ok ? '' : 'bad'}">${esc(b)}${s.ok ? '' : ' · couldn’t check'}</span>`).join('');
-  if (!d.drops.length) { $('list').innerHTML = '<p class="empty">No new drops yet. Check back tomorrow.</p>'; return; }
-  let day = '';
-  $('list').innerHTML = d.drops.map(x => {
-    const dd = new Date(x.found).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
-    const head = dd !== day ? `<h2>${esc(day = dd)}</h2>` : '';
-    return head + `<a class="item" href="${esc(x.url)}" target="_blank" rel="noopener">
-      ${x.image ? `<img src="${esc(x.image)}&width=200" loading="lazy" alt="">` : '<div class="ph"></div>'}
-      <div><div class="brand">${esc(x.brand)}</div><div class="title">${esc(x.title)}</div>
-      ${x.price ? `<div class="price">£${esc(x.price)}</div>` : ''}</div></a>`;
-  }).join('');
+    `<span class="chip ${s.ok && s.vinted !== false ? '' : 'bad'}">${esc(b)}${s.ok ? '' : ' · shop unavailable'}${s.vinted === false ? ' · Vinted unavailable' : ''}</span>`).join('');
+  const render = tab => {
+    document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+    const items = d[tab] || [];
+    if (!items.length) { $('list').innerHTML = '<p class="empty">Nothing new yet. Check back tomorrow.</p>'; return; }
+    let day = '';
+    $('list').innerHTML = items.map(x => {
+      const dd = new Date(x.found).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
+      const head = tab === 'drops' && dd !== day ? `<h2>${esc(day = dd)}</h2>` : '';
+      // Shopify images accept a width param; Vinted's are signed and already small.
+      const img = x.image && (tab === 'drops' ? x.image + '&width=200' : x.image);
+      return head + `<a class="item" href="${esc(x.url)}" target="_blank" rel="noopener">
+        ${img ? `<img src="${esc(img)}" loading="lazy" alt="">` : '<div class="ph"></div>'}
+        <div><div class="brand">${esc(x.brand)}</div><div class="title">${esc(x.title)}</div>
+        ${x.detail ? `<div class="detail">${esc(x.detail)}</div>` : ''}
+        ${x.price ? `<div class="price">£${esc(x.price)}</div>` : ''}</div></a>`;
+    }).join('');
+  };
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => render(b.dataset.tab));
+  render('drops');
 }).catch(() => $('meta').textContent = 'Couldn’t load drops.');
 
 // Notifications: iOS only allows these once the page is added to the home screen.
