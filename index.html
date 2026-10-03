@@ -147,14 +147,14 @@ fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
     document.querySelectorAll('[data-brand]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.brand || null) === brand));
 
-    if (tab === 'ebay') {
+    if (tab === 'ebay' && !d.ebay) {
       $('notice').hidden = true;
       $('list').innerHTML = '<div class="empty"><p>Under construction.</p><p>eBay listings for your brands are coming soon.</p></div>';
       return;
     }
-    const down = Object.entries(d.status).filter(([b, s]) => (!brand || b === brand) && (tab === 'drops' ? !s.ok : s.vinted === false)).map(([b]) => b);
+    const down = Object.entries(d.status).filter(([b, s]) => (!brand || b === brand) && (tab === 'drops' ? !s.ok : s[tab] === false)).map(([b]) => b);
     $('notice').hidden = !down.length;
-    $('notice').textContent = `Couldn’t check ${down.join(' or ')}${tab === 'vinted' ? ' on Vinted' : ''} today. It’ll try again tomorrow.`;
+    $('notice').textContent = `Couldn’t check ${down.join(' or ')}${tab === 'vinted' ? ' on Vinted' : tab === 'ebay' ? ' on eBay' : ''} today. It’ll try again tomorrow.`;
 
     if (tab === 'drops' && brand && d.status[brand]?.noShop) {
       $('list').innerHTML = `<div class="empty"><p>No shop to check.</p><p>${esc(brand)} doesn’t sell clothes on its own website. Look in the Vinted tab instead.</p></div>`;
@@ -163,10 +163,10 @@ fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
     const items = (d[tab] || []).filter(x => !brand || x.brand === brand);
     if (!items.length) {
       const who = brand || 'your brands';
-      $('list').innerHTML = `<div class="empty"><p>Nothing new yet.</p><p>New ${tab === 'drops' ? 'arrivals' : 'Vinted listings'} from ${esc(who)} show up here after the daily check.</p></div>`;
+      $('list').innerHTML = `<div class="empty"><p>Nothing new yet.</p><p>New ${tab === 'drops' ? 'arrivals' : tab === 'ebay' ? 'eBay listings' : 'Vinted listings'} from ${esc(who)} show up here after the daily check.</p></div>`;
       return;
     }
-    if (tab === 'vinted') { $('list').innerHTML = `<div class="grid">${items.map(card).join('')}</div>`; return; }
+    if (tab !== 'drops') { $('list').innerHTML = `<div class="grid">${items.map(card).join('')}</div>`; return; }
     const days = {};
     for (const x of items) (days[dayName(x.found)] ||= []).push(x);
     $('list').innerHTML = Object.entries(days).map(([day, xs]) =>

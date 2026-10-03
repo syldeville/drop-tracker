@@ -18,6 +18,8 @@ jobs:
           PUSH_SUBSCRIPTION: ${{ secrets.PUSH_SUBSCRIPTION }}
           VAPID_PUBLIC: BKbdPatCQOooWLbwDa80TrJdYou5PkGeIshFQsHgvgGXU6p3ggj7c59Il7JjINbHXGN0XZmIRi99oqVVryrogew
           VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
       - run: |
           git config user.name "drop-bot"
           git config user.email "drop-bot@users.noreply.github.com"

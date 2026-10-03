@@ -8,10 +8,10 @@ const BRANDS = [
   { name: 'Lucy & Yak', shopify: 'https://lucyandyak.com', vinted: 1042718 },
   // ponytail: Cloudflare bot wall blocks the shop from servers; shows as "couldn't check" until they relax it
   { name: 'Peachy Den', shopify: 'https://www.peachyden.co.uk', vinted: 4394528 },
-  { name: 'Dr. Martens', sitemap: 'https://www.drmartens.com/uk/en_gb/sitemap/products.xml', vinted: 309 },
+  { name: 'Dr. Martens', ebayMatch: 'martens', sitemap: 'https://www.drmartens.com/uk/en_gb/sitemap/products.xml', vinted: 309 },
   { name: 'SKIMS', sitemap: 'https://skims.com/sitemap-products.xml', vinted: 590677 },
   // No shop of their own that sells clothes (JPG's site is perfume only), so Vinted only.
-  { name: 'Galliano', vinted: [10613, 7011975] },
+  { name: 'Galliano', ebay: 'John Galliano', vinted: [10613, 7011975] },
   { name: 'Jean Paul Gaultier', vinted: 4129 },
   { name: 'Marine Serre', next: ['https://www.marineserre.com/en/collection/new-in-women', 'https://www.marineserre.com/en/collection/new-in-men'], cur: '€', vinted: 780179 },
   { name: 'Moschino', shopify: 'https://www.moschino.com', cur: '€', vinted: 11925 },
@@ -89,12 +89,48 @@ async function fetchVinted(brandIds) {
   return [...items.values()];
 }
 
+// eBay's official Browse API. Keys come from developer.ebay.com (EBAY_CLIENT_ID / EBAY_CLIENT_SECRET).
+async function ebayToken() {
+  const id = process.env.EBAY_CLIENT_ID?.trim(), secret = process.env.EBAY_CLIENT_SECRET?.trim();
+  if (!id || !secret) return null;
+  const res = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+    method: 'POST',
+    headers: { authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`, 'content-type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
+  });
+  if (!res.ok) throw new Error(`eBay login failed: HTTP ${res.status} ${await res.text()}`);
+  return (await res.json()).access_token;
+}
+
+const norm = s => ` ${s.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim()} `;
+
+async function fetchEbay(token, b) {
+  // Category 11450 = Clothes, Shoes & Accessories on eBay UK.
+  const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(b.ebay || b.name)}&category_ids=11450&filter=deliveryCountry:GB&sort=newlyListed&limit=100`;
+  const res = await fetch(url, { headers: { authorization: `Bearer ${token}`, 'x-ebay-c-marketplace-id': 'EBAY_GB' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  // eBay search is fuzzy, so keep only listings that actually name the brand.
+  const want = norm(b.ebayMatch || b.ebay || b.name.replace(/^the /i, ''));
+  return ((await res.json()).itemSummaries || []).filter(i => norm(i.title).includes(want)).map(i => ({
+    id: i.itemId,
+    title: i.title,
+    url: i.itemWebUrl,
+    image: i.image?.imageUrl || i.thumbnailImages?.[0]?.imageUrl,
+    price: i.price?.currency === 'GBP' ? Number(i.price.value).toFixed(2) : undefined,
+    detail: i.condition,
+    listed: i.itemCreationDate,
+  }));
+}
+
 const seen = fs.existsSync('seen.json') ? JSON.parse(fs.readFileSync('seen.json')) : {};
 const feed = fs.existsSync('drops.json') ? JSON.parse(fs.readFileSync('drops.json')) : { drops: [] };
 const now = new Date().toISOString();
 const status = {};
 const fresh = [];
 const freshVinted = [];
+const freshEbay = [];
+let ebay = null;
+try { ebay = await ebayToken(); } catch (e) { console.log(`::error::${e.message}`); }
 
 // Returns items not seen before under `key`. First run for a key just seeds, otherwise everything would look "new".
 function diff(key, items, brand, keep = Infinity) {
@@ -128,6 +164,14 @@ for (const b of BRANDS) {
   } catch (e) {
     status[b.name].vinted = false;
   }
+  if (ebay) try {
+    const items = await fetchEbay(ebay, b);
+    freshEbay.push(...diff(`ebay:${b.name}`, items, b.name, 3000));
+    feed.ebay = [...items.map(it => ({ brand: b.name, found: now, ...it })), ...(feed.ebay || [])];
+    status[b.name].ebay = true;
+  } catch (e) {
+    status[b.name].ebay = false;
+  }
   console.log(b.name, status[b.name]);
 }
 
@@ -138,22 +182,28 @@ feed.drops = [...fresh, ...feed.drops].slice(0, 300);
 const perBrand = {};
 feed.vinted = [...new Map(feed.vinted.map(v => [v.id, v])).values()].sort((a, b) => b.id - a.id)
   .filter(v => (perBrand[v.brand] = (perBrand[v.brand] || 0) + 1) <= 60);
+if (feed.ebay) {
+  const perEbay = {};
+  feed.ebay = [...new Map(feed.ebay.map(v => [v.id, v])).values()].sort((a, b) => (b.listed || '').localeCompare(a.listed || ''))
+    .filter(v => (perEbay[v.brand] = (perEbay[v.brand] || 0) + 1) <= 60);
+}
 fs.writeFileSync('seen.json', JSON.stringify(seen));
 fs.writeFileSync('drops.json', JSON.stringify(feed, null, 1));
-console.log(`${fresh.length} new, ${freshVinted.length} new on Vinted`);
+console.log(`${fresh.length} new, ${freshVinted.length} new on Vinted, ${freshEbay.length} new on eBay`);
 
 const { PUSH_SUBSCRIPTION, VAPID_PUBLIC, VAPID_PRIVATE } = process.env;
-if ((fresh.length || freshVinted.length) && PUSH_SUBSCRIPTION && VAPID_PRIVATE) {
+if ((fresh.length || freshVinted.length || freshEbay.length) && PUSH_SUBSCRIPTION && VAPID_PRIVATE) {
   const counts = {};
   for (const f of fresh) counts[f.brand] = (counts[f.brand] || 0) + 1;
   const lines = Object.entries(counts).map(([b, n]) => `${b}: ${n}`);
   if (freshVinted.length) lines.push(`Vinted: ${freshVinted.length} new listings`);
+  if (freshEbay.length) lines.push(`eBay: ${freshEbay.length} new listings`);
   // A bad secret shouldn't stop the day's data from being saved, so log and carry on.
   try {
     // Secrets pasted into GitHub often pick up stray spaces, newlines or quotes.
     webpush.setVapidDetails('mailto:drops@example.com', VAPID_PUBLIC, VAPID_PRIVATE.trim().replace(/^["']|["']$/g, ''));
     await webpush.sendNotification(JSON.parse(PUSH_SUBSCRIPTION.trim()), JSON.stringify({
-      title: fresh.length ? `${fresh.length} new drop${fresh.length > 1 ? 's' : ''}` : 'New on Vinted',
+      title: fresh.length ? `${fresh.length} new drop${fresh.length > 1 ? 's' : ''}` : 'New secondhand listings',
       body: lines.join(' · '),
     }));
     console.log('Notification sent');
