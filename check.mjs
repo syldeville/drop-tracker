@@ -119,6 +119,7 @@ async function fetchEbay(token, b) {
     price: i.price?.currency === 'GBP' ? Number(i.price.value).toFixed(2) : undefined,
     detail: i.condition,
     listed: i.itemCreationDate,
+    country: i.itemLocation?.country !== 'GB' ? i.itemLocation?.country : undefined,
   }));
 }
 

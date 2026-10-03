@@ -124,6 +124,9 @@
 const VAPID_PUBLIC = 'BKbdPatCQOooWLbwDa80TrJdYou5PkGeIshFQsHgvgGXU6p3ggj7c59Il7JjINbHXGN0XZmIRi99oqVVryrogew';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const countryName = new Intl.DisplayNames(['en-GB'], { type: 'region' });
+// 'DE' -> 🇩🇪 (flag emoji are pairs of regional-indicator letters).
+const flag = cc => `<span role="img" aria-label="Seller in ${esc(countryName.of(cc))}" title="Seller in ${esc(countryName.of(cc))}">${String.fromCodePoint(...[...cc].map(c => 0x1F1A5 + c.charCodeAt(0)))}</span>`;
 const dayName = iso => new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
 fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
@@ -137,7 +140,8 @@ fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
     const img = x.image && (tab === 'drops' ? x.image + '&width=500' : x.image);
     const photo = img ? `<div class="photo"><img src="${esc(img)}" loading="lazy" alt=""></div>`
                       : `<div class="photo text">${esc(x.title)}</div>`;
-    const meta = [x.price && `<span class="price">${tab === 'drops' ? esc(x.cur || '£') : '£'}${esc(x.price)}</span>`, x.detail && esc(x.detail)].filter(Boolean).join(', ');
+    const meta = (x.country && /^[A-Z]{2}$/.test(x.country) ? flag(x.country) + ' ' : '') +
+      [x.price && `<span class="price">${tab === 'drops' ? esc(x.cur || '£') : '£'}${esc(x.price)}</span>`, x.detail && esc(x.detail)].filter(Boolean).join(', ');
     return `<a class="item" href="${esc(x.url)}" target="_blank" rel="noopener">${photo}
       <div class="brand">${esc(x.brand)}</div>${img ? `<div class="title">${esc(x.title)}</div>` : ''}
       ${meta ? `<div class="meta">${meta}</div>` : ''}</a>`;
