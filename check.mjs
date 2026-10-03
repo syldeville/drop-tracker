@@ -148,9 +148,16 @@ if ((fresh.length || freshVinted.length) && PUSH_SUBSCRIPTION && VAPID_PRIVATE) 
   for (const f of fresh) counts[f.brand] = (counts[f.brand] || 0) + 1;
   const lines = Object.entries(counts).map(([b, n]) => `${b}: ${n}`);
   if (freshVinted.length) lines.push(`Vinted: ${freshVinted.length} new listings`);
-  webpush.setVapidDetails('mailto:drops@example.com', VAPID_PUBLIC, VAPID_PRIVATE);
-  await webpush.sendNotification(JSON.parse(PUSH_SUBSCRIPTION), JSON.stringify({
-    title: fresh.length ? `${fresh.length} new drop${fresh.length > 1 ? 's' : ''}` : 'New on Vinted',
-    body: lines.join(' · '),
-  }));
+  // A bad secret shouldn't stop the day's data from being saved, so log and carry on.
+  try {
+    // Secrets pasted into GitHub often pick up stray spaces, newlines or quotes.
+    webpush.setVapidDetails('mailto:drops@example.com', VAPID_PUBLIC, VAPID_PRIVATE.trim().replace(/^["']|["']$/g, ''));
+    await webpush.sendNotification(JSON.parse(PUSH_SUBSCRIPTION.trim()), JSON.stringify({
+      title: fresh.length ? `${fresh.length} new drop${fresh.length > 1 ? 's' : ''}` : 'New on Vinted',
+      body: lines.join(' · '),
+    }));
+    console.log('Notification sent');
+  } catch (e) {
+    console.log(`::error::Notification not sent: ${e.message}`);
+  }
 }
