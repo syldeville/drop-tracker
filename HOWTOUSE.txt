@@ -40,8 +40,10 @@ USING THE APP
 
 Feed      Everything new from the brands you follow in one list, newest first:
           shop drops, Vinted and eBay mixed together. Each photo is labelled
-          with where it's from. Use All / Shops / Vinted / eBay at the top to
-          narrow it. Tap any item to open it. Tap Feed again to jump to the top.
+          with where it's from. Tap the chips at the top to filter: the first
+          row by where it's listed (Main site, Vinted, eBay), the second by
+          brand. Pick as many as you like; Clear shows everything again.
+          Tap any item to open it. Tap Feed again to jump to the top.
 Brands    Switch brands on or off. Your choice is saved on your phone and only
           changes what the Feed shows. Notifications still cover every brand.
 Settings  Notifications, when it last checked, and any brand it couldn't check.

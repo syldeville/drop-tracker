@@ -58,14 +58,16 @@
 
   .large { margin: 0; padding: 3px 16px 8px; font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: .37px; }
 
-  /* Segmented control */
-  .seg { position: relative; display: flex; margin: 4px 16px 0; padding: 2px; border-radius: 9px; background: var(--fill); }
-  .seg-thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n, 4)); border-radius: 7px;
-    background: var(--thumb); box-shadow: 0 3px 8px rgba(0, 0, 0, .12), 0 3px 1px rgba(0, 0, 0, .04);
-    transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .25s cubic-bezier(.3, .7, .4, 1); }
-  .seg button { position: relative; flex: 1; height: 28px; font-size: 13px; font-weight: 500; letter-spacing: -.08px; }
-  .seg button[aria-pressed=true] { font-weight: 600; }
-  .seg button[hidden] { display: none; }
+  /* Filter chips: none picked in a row means everything in that row */
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips + .chips { margin-top: 4px; }
+  .chip { flex: none; height: 32px; padding: 0 14px; border-radius: 16px; background: var(--fill);
+    font-size: 15px; font-weight: 500; letter-spacing: -.24px; white-space: nowrap; transition: background .15s, color .15s; }
+  .chip[aria-pressed=true] { background: var(--tint); color: var(--bg); }
+  .chip[hidden] { display: none; }
+  .chip.clear { margin-left: auto; padding: 0 2px 0 8px; background: none; color: var(--tint); }
+  .chip.clear[hidden] { display: block; visibility: hidden; }
   .caption { margin: 10px 16px 0; font-size: 13px; line-height: 18px; letter-spacing: -.08px; color: var(--label2); }
 
   .banner { display: flex; gap: 10px; align-items: flex-start; margin: 14px 16px 0; padding: 11px 14px; border-radius: 12px;
@@ -158,12 +160,14 @@
 <main>
   <section class="screen" id="feed" role="tabpanel" aria-label="Feed">
     <h1 class="large">Feed</h1>
-    <div class="seg" id="seg" role="group" aria-label="Source">
-      <span class="seg-thumb" aria-hidden="true"></span>
-      <button data-src="all" aria-pressed="true">All</button>
-      <button data-src="drops" aria-pressed="false">Shops</button>
-      <button data-src="vinted" aria-pressed="false">Vinted</button>
-      <button data-src="ebay" aria-pressed="false">eBay</button>
+    <div id="filters">
+      <div class="chips" id="srcChips" role="group" aria-label="Filter by where it’s listed">
+        <button class="chip" data-src="drops" aria-pressed="false">Main site</button>
+        <button class="chip" data-src="vinted" aria-pressed="false">Vinted</button>
+        <button class="chip" data-src="ebay" aria-pressed="false">eBay</button>
+        <button class="chip clear" id="clearFilters" hidden>Clear</button>
+      </div>
+      <div class="chips" id="brandChips" role="group" aria-label="Filter by brand"></div>
     </div>
     <p class="caption" id="caption">Loading…</p>
     <button class="banner" id="banner" hidden></button>
@@ -204,7 +208,7 @@
 <script>
 const VAPID_PUBLIC = 'BKbdPatCQOooWLbwDa80TrJdYou5PkGeIshFQsHgvgGXU6p3ggj7c59Il7JjINbHXGN0XZmIRi99oqVVryrogew';
 const HOWTO = 'https://github.com/syldeville/drop-tracker/blob/main/HOWTOUSE.txt';
-const SOURCES = { drops: 'Shop', vinted: 'Vinted', ebay: 'eBay' };
+const SOURCES = { drops: 'Main site', vinted: 'Vinted', ebay: 'eBay' };
 const PAGE = 40;
 const COLORS = ['#ff3b30', '#ff9500', '#34c759', '#00a5a0', '#32ade6', '#007aff', '#5856d6', '#af52de', '#ff2d55', '#a2845e', '#8e8e93'];
 const CHEV = '<svg class="chev" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5l-5 5"/></svg>';
@@ -240,7 +244,14 @@ let hidden = new Set();
 try { hidden = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch {}
 const saveHidden = () => { try { localStorage.setItem(KEY, JSON.stringify([...hidden])); } catch {} };
 
-let d = null, loadedAt = 0, source = 'all', tab = 'feed';
+let d = null, loadedAt = 0, tab = 'feed';
+// Feed filters, remembered on this phone. An empty set means "all".
+const FKEY = 'drops.feedFilters';
+let srcSel = new Set(), brandSel = new Set();
+try { const f = JSON.parse(localStorage.getItem(FKEY) || '{}'); srcSel = new Set(f.src || []); brandSel = new Set(f.brand || []); } catch {}
+const saveFilters = () => { try { localStorage.setItem(FKEY, JSON.stringify({ src: [...srcSel], brand: [...brandSel] })); } catch {} };
+const wantSrc = src => !srcSel.size || srcSel.has(src);
+const wantBrand = b => !hidden.has(b) && (!brandSel.size || brandSel.has(b));
 const scrollPos = {};
 
 /* ---------- Feed ---------- */
@@ -249,10 +260,10 @@ let items = [], shown = 0, lastDay = null, grid = null, dayCounts = {};
 function feedItems() {
   const out = [];
   for (const src of Object.keys(SOURCES)) {
-    if (source !== 'all' && source !== src) continue;
+    if (!wantSrc(src)) continue;
     const rank = {};
     for (const x of d[src] || []) {
-      if (hidden.has(x.brand)) continue;
+      if (!wantBrand(x.brand)) continue;
       // Rank within each brand's batch so one busy brand doesn't fill the top of a day.
       const g = `${src}|${x.brand}|${x.found}`;
       out.push({ ...x, src, r: rank[g] = (rank[g] || 0) + 1, h: hash(x.id) });
@@ -302,7 +313,8 @@ function renderFeed() {
   const following = brands.filter(b => !hidden.has(b)).length;
   $('caption').textContent = `${following} of ${brands.length} brands · Checked ${whenLabel(d.checked).replace(/^(Today|Yesterday)/, s => s.toLowerCase()).replace(', ', ' at ')}`;
 
-  const down = problems().filter(p => !hidden.has(p.brand) && (source === 'all' || source === p.src));
+  renderChips();
+  const down = problems().filter(p => wantBrand(p.brand) && wantSrc(p.src));
   $('banner').hidden = !down.length;
   $('banner').innerHTML = `${WARN}<span>Couldn’t check ${esc(down.map(p => `${p.brand} (${SOURCES[p.src]})`).join(', '))} today. It’ll try again at the next check.</span>`;
 
@@ -311,9 +323,11 @@ function renderFeed() {
   $('list').innerHTML = '';
   if (!following) {
     $('list').innerHTML = emptyState('No brands followed', 'Choose the brands you care about and their new items will appear here.', '<button class="pill" data-goto="brands">Choose Brands</button>');
+  } else if (!items.length && (srcSel.size || brandSel.size)) {
+    $('list').innerHTML = emptyState('No matches', 'Nothing new matches these filters yet.', '<button class="pill" id="clearEmpty">Clear Filters</button>');
+    $('clearEmpty').onclick = clearFilters;
   } else if (!items.length) {
-    const what = source === 'all' ? 'items' : source === 'drops' ? 'shop drops' : `${SOURCES[source]} listings`;
-    $('list').innerHTML = emptyState('Nothing new yet', `New ${what} from the brands you follow appear here after the daily check.`);
+    $('list').innerHTML = emptyState('Nothing new yet', 'New items from the brands you follow appear here after the daily check.');
   }
   more();
 }
@@ -335,20 +349,32 @@ function more() {
 }
 new IntersectionObserver(es => { if (es[0].isIntersecting && d && shown < items.length) more(); }, { rootMargin: '1200px 0px' }).observe($('more'));
 
-function setSource(s) {
-  source = s;
-  const btns = [...$('seg').querySelectorAll('button:not([hidden])')];
-  btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.src === s));
-  $('seg').style.setProperty('--n', btns.length);
-  $('seg').style.setProperty('--i', btns.findIndex(b => b.dataset.src === s));
-  renderFeed();
+function renderChips() {
+  const followed = Object.keys(d.status || {}).filter(b => !hidden.has(b));
+  // A brand you stop following drops out of the brand filter too.
+  if ([...brandSel].some(b => !followed.includes(b))) { brandSel = new Set([...brandSel].filter(b => followed.includes(b))); saveFilters(); }
+  $('srcChips').querySelectorAll('[data-src]').forEach(c => c.setAttribute('aria-pressed', srcSel.has(c.dataset.src)));
+  $('brandChips').innerHTML = followed.map(b => `<button class="chip" data-brand="${esc(b)}" aria-pressed="${brandSel.has(b)}">${esc(b)}</button>`).join('');
+  $('brandChips').hidden = followed.length < 2;
+  $('clearFilters').hidden = !srcSel.size && !brandSel.size;
 }
-$('seg').onclick = e => {
-  const b = e.target.closest('button');
-  if (!b || b.dataset.src === source) return;
-  setSource(b.dataset.src);
-  const top = $('seg').offsetTop - parseFloat(getComputedStyle($('navbar')).height) - 8;
+function applyFilters() {
+  saveFilters();
+  const sx = $('brandChips').scrollLeft;
+  renderFeed();
+  $('brandChips').scrollLeft = sx;
+  // Keep the chips in view rather than leaving you deep in a list that just changed.
+  const top = $('filters').offsetTop - $('navbar').offsetHeight - 8;
   if (scrollY > top) scrollTo(0, top);
+}
+function clearFilters() { srcSel.clear(); brandSel.clear(); applyFilters(); }
+$('filters').onclick = e => {
+  const c = e.target.closest('.chip');
+  if (!c) return;
+  if (c === $('clearFilters')) return clearFilters();
+  const [set, key] = c.dataset.src ? [srcSel, c.dataset.src] : [brandSel, c.dataset.brand];
+  set.has(key) ? set.delete(key) : set.add(key);
+  applyFilters();
 };
 $('banner').onclick = () => show('settings');
 
@@ -364,7 +390,7 @@ function renderBrands() {
   for (const src of Object.keys(SOURCES)) for (const x of d[src] || []) counts[x.brand] = (counts[x.brand] || 0) + 1;
   $('brandList').innerHTML = names.map((b, i) => {
     const s = d.status[b];
-    const srcs = [!s.noShop && (s.ok ? 'Shop' : '<span class="warn">Shop not checked</span>'),
+    const srcs = [!s.noShop && (s.ok ? 'Main site' : '<span class="warn">Main site not checked</span>'),
       s.vinted !== undefined && (s.vinted ? 'Vinted' : '<span class="warn">Vinted not checked</span>'),
       s.ebay !== undefined && (s.ebay ? 'eBay' : '<span class="warn">eBay not checked</span>')].filter(Boolean);
     return `<label class="row icon-row">
@@ -502,9 +528,9 @@ async function load() {
     if (!d) $('caption').textContent = 'Couldn’t load drops. Close and reopen the app to try again.';
     return;
   }
-  $('seg').querySelector('[data-src=ebay]').hidden = !d.ebay;
-  if (source === 'ebay' && !d.ebay) source = 'all';
-  setSource(source);
+  $('srcChips').querySelector('[data-src=ebay]').hidden = !d.ebay;
+  if (!d.ebay) srcSel.delete('ebay');
+  renderFeed();
   renderBrands();
   renderSettings();
 }
