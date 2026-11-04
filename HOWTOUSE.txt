@@ -13,8 +13,9 @@ TURN ON NOTIFICATIONS (one time)
 The daily check runs on GitHub, not on your phone. GitHub needs your
 phone's notification address (the "setup code") to know where to send them.
 
-1. On your iPhone, open Drops, tap the bell, and allow notifications.
-2. Tap Copy setup code. Do this on the phone, not your computer.
+1. On your iPhone, open Drops, go to the Settings tab, tap Turn On Notifications,
+   and allow them.
+2. Tap Copy Setup Code. Do this on the phone, not your computer.
 3. On GitHub, open the drop-tracker repo, then
    Settings > Secrets and variables > Actions > New repository secret.
 4. Name: PUSH_SUBSCRIPTION    Value: paste the setup code. Save.
@@ -37,10 +38,15 @@ Settings > Actions > General > Workflow permissions > Read and write.
 
 USING THE APP
 
-Shops   New products from each brand's website, grouped by day.
-Vinted  Newest Vinted UK listings for each brand.
-Tap a brand name at the top to show only that brand. Tap All to show everything.
-Tap any item to open it.
+Feed      Everything new from the brands you follow in one list, newest first:
+          shop drops, Vinted and eBay mixed together. Each photo is labelled
+          with where it's from. Tap the chips at the top to filter: the first
+          row by where it's listed (Main site, Vinted, eBay), the second by
+          brand. Pick as many as you like; Clear shows everything again.
+          Tap any item to open it. Tap Feed again to jump to the top.
+Brands    Switch brands on or off. Your choice is saved on your phone and only
+          changes what the Feed shows. Notifications still cover every brand.
+Settings  Notifications, when it last checked, and any brand it couldn't check.
 
 
 ADDING A BRAND
@@ -50,7 +56,7 @@ Most indie brands: if theirsite.com/products.json shows product text, use
   { name: 'Brand Name', shopify: 'https://theirsite.com', vinted: 12345 },
 The vinted number is in the brand's Vinted page address, e.g.
 vinted.co.uk/brand/1042718-lucy-yak is 1042718.
-The first check after adding only records what's already there. Only items
+It appears in the Brands tab after the next check. The first check after adding only records what's already there. Only items
 added after that count as new.
 
 

@@ -7,210 +7,536 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Drops">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400..800&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* iOS system palette (light, then dark) */
   :root {
-    --paper: #ffffff; --ink: #000000; --muted: #6e6a70; --line: #e7e3e8; --tile: #f3eef2; --accent: #6b2d5c;
-    --display: 'Syne', -apple-system, system-ui, sans-serif;
-    --sans: 'Hanken Grotesk', -apple-system, system-ui, sans-serif;
-    --gutter: 16px;
+    --bg: #ffffff; --grouped: #f2f2f7; --cell: #ffffff; --tile: #f2f2f7;
+    --label: #000000; --label2: rgba(60, 60, 67, .6); --label3: rgba(60, 60, 67, .3);
+    --sep: rgba(60, 60, 67, .29); --fill: rgba(118, 118, 128, .12); --thumb: #ffffff; --press: #e5e5ea;
+    --bar: rgba(249, 249, 249, .94);
+    --tint: #8e3b7c; --green: #34c759; --orange: #c75c00;
+    --font: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+    --nav: calc(env(safe-area-inset-top) + 44px);
+    --tabs: calc(env(safe-area-inset-bottom) + 50px);
     color-scheme: light dark;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --paper: #000000; --ink: #f5f2f4; --muted: #9a949c; --line: #2a262a; --tile: #151215; --accent: #e3b3d3; }
+    :root {
+      --bg: #000000; --grouped: #000000; --cell: #1c1c1e; --tile: #1c1c1e;
+      --label: #ffffff; --label2: rgba(235, 235, 245, .6); --label3: rgba(235, 235, 245, .3);
+      --sep: rgba(84, 84, 88, .65); --fill: rgba(118, 118, 128, .24); --thumb: #636366; --press: #2c2c2e;
+      --bar: rgba(22, 22, 23, .9);
+      --tint: #e59ad4; --green: #30d158; --orange: #ff9f0a;
+    }
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { -webkit-text-size-adjust: 100%; }
-  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 var(--sans);
-    padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
-  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--label);
+    font: 17px/1.29 var(--font); letter-spacing: -.41px;
+    padding: var(--nav) 0 calc(var(--tabs) + 24px); }
+  body.grouped { background: var(--grouped); }
+  button { font: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  :focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; border-radius: 6px; }
+  .screen { max-width: 980px; margin: 0 auto; }
+  .screen[hidden] { display: none; }
 
-  /* Masthead: the one loud thing on the page */
-  header { position: relative; padding: calc(env(safe-area-inset-top) + 20px) var(--gutter) 12px; }
+  /* Navigation bar: transparent over the large title, frosted once it scrolls away */
+  .navbar { position: fixed; z-index: 5; top: 0; left: 0; right: 0; height: var(--nav);
+    padding: env(safe-area-inset-top) 16px 0; display: flex; align-items: center; justify-content: center;
+    background: transparent; border-bottom: .5px solid transparent; transition: background .2s, border-color .2s; }
+  .navbar.collapsed { background: var(--bar); border-bottom-color: var(--sep);
+    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+  .nav-title { font-weight: 600; opacity: 0; transition: opacity .2s; }
+  .navbar.collapsed .nav-title { opacity: 1; }
+  .nav-action { position: absolute; right: 16px; bottom: 0; height: 44px; color: var(--tint); }
+  .nav-action[hidden] { display: none; }
 
-  /* Notification bell + popover */
-  .bell { position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: calc(var(--gutter) - 10px);
-    width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink); }
-  .bell svg { width: 24px; height: 24px; transform-origin: 50% 3px; }
-  .bell .fill { fill: transparent; transition: fill .25s; }
-  .bell[aria-pressed=true] .fill { fill: currentColor; }
-  .bell::after { content: ''; position: absolute; top: 11px; right: 11px; width: 7px; height: 7px; border-radius: 50%;
-    background: var(--accent); transform: scale(0); transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
-  .bell[aria-pressed=true]::after { transform: scale(1); }
-  .bell.ring svg { animation: ring .8s ease-in-out; }
-  @keyframes ring { 0%, 100% { transform: rotate(0) } 15% { transform: rotate(22deg) } 30% { transform: rotate(-18deg) }
-    45% { transform: rotate(12deg) } 60% { transform: rotate(-8deg) } 75% { transform: rotate(4deg) } }
-  .pop { position: absolute; z-index: 4; top: calc(env(safe-area-inset-top) + 58px); right: var(--gutter); width: min(270px, calc(100vw - 2 * var(--gutter)));
-    padding: 16px; background: var(--paper); border: 1px solid var(--ink); font-size: 13px; color: var(--muted);
-    transform-origin: calc(100% - 22px) 0; animation: pop .22s ease-out; }
-  .pop[hidden] { display: none; }
-  .pop strong { display: block; font: 700 17px/1.2 var(--display); color: var(--ink); margin-bottom: 4px; }
-  .pop button { margin-top: 12px; font-weight: 600; color: var(--accent); }
-  @keyframes pop { from { opacity: 0; transform: scale(.9) translateY(-4px); } }
-  @media (prefers-reduced-motion: reduce) { .bell.ring svg, .pop { animation: none; } }
-  .masthead { font: 800 clamp(48px, 16vw, 96px)/0.9 var(--display); letter-spacing: -0.06em; margin: 0 0 0 -0.03em; }
-  .dateline { margin-top: 14px; padding-top: 10px;
-    border-top: 1px solid var(--ink); font-size: 13px; color: var(--muted); }
+  .large { margin: 0; padding: 3px 16px 8px; font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: .37px; }
 
-  /* Brand strip */
-  nav.brands { position: sticky; top: 0; z-index: 2; background: var(--paper);
-    padding-top: env(safe-area-inset-top); border-bottom: 1px solid var(--line); }
-  .brand-row { display: flex; gap: 18px; overflow-x: auto; padding: 12px var(--gutter); scrollbar-width: none; }
-  .brand-row::-webkit-scrollbar { display: none; }
-  .brand-row button { flex: none; font: 500 14px/1.2 var(--display); color: var(--muted); padding: 4px 0; white-space: nowrap;
-    border-bottom: 1.5px solid transparent; }
-  .brand-row button[aria-pressed=true] { color: var(--ink); font-weight: 700; border-color: var(--accent); }
+  /* Filter chips: none picked in a row means everything in that row */
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips + .chips { margin-top: 4px; }
+  .chip { flex: none; height: 32px; padding: 0 14px; border-radius: 16px; background: var(--fill);
+    font-size: 15px; font-weight: 500; letter-spacing: -.24px; white-space: nowrap; transition: background .15s, color .15s; }
+  .chip[aria-pressed=true] { background: var(--tint); color: var(--bg); }
+  .chip[hidden] { display: none; }
+  .chip.clear { margin-left: auto; padding: 0 2px 0 8px; background: none; color: var(--tint); }
+  .chip.clear[hidden] { display: block; visibility: hidden; }
+  .caption { margin: 10px 16px 0; font-size: 13px; line-height: 18px; letter-spacing: -.08px; color: var(--label2); }
 
-  main { padding: 0 var(--gutter); }
-  .notice { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+  .banner { display: flex; gap: 10px; align-items: flex-start; margin: 14px 16px 0; padding: 11px 14px; border-radius: 12px;
+    background: var(--fill); font-size: 13px; line-height: 18px; letter-spacing: -.08px; color: var(--label2); text-align: left; width: calc(100% - 32px); }
+  .banner svg { flex: none; width: 18px; height: 18px; color: var(--orange); margin-top: 0; }
+  .banner[hidden] { display: none; }
 
-  h2 { display: flex; justify-content: space-between; align-items: baseline; margin: 32px 0 14px;
-    font: 700 19px/1.15 var(--display); letter-spacing: -0.02em; }
-  h2 span { font: 400 13px var(--sans); color: var(--muted); }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 12px; margin-top: 20px; }
-  h2 + .grid { margin-top: 0; }
-  .item { color: inherit; text-decoration: none; display: block; min-width: 0; }
-  .photo { aspect-ratio: 3 / 4; background: var(--tile); overflow: hidden; }
-  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .photo.text { display: flex; align-items: flex-end; padding: 10px; font: 600 15px/1.2 var(--display); }
-  .item .brand { font: 600 13px/1.2 var(--display); margin-top: 9px; }
-  .item .title { font-size: 13px; line-height: 1.35; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .item .meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
-  .item .price { color: var(--ink); font-weight: 600; }
-  .empty { padding: 56px 0; max-width: 30ch; }
-  .empty p:first-child { font: 700 20px/1.2 var(--display); margin: 0 0 8px; color: var(--ink); }
-  .empty p + p { margin: 0; color: var(--muted); }
+  /* Feed */
+  .day { margin-top: 18px; }
+  .day h2 { position: sticky; top: var(--nav); z-index: 2; display: flex; align-items: baseline; justify-content: space-between;
+    margin: 0; padding: 10px 16px 8px; font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: .35px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+  .day h2 span { font-size: 15px; font-weight: 400; letter-spacing: -.24px; color: var(--label2); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 12px; padding: 6px 16px 0; }
+  @media (min-width: 600px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 860px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .card { display: block; min-width: 0; }
+  .card:active .ph { opacity: .7; }
+  .ph { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; background: var(--tile); transition: opacity .15s; }
+  .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ph .alt { position: absolute; inset: auto 0 0 0; padding: 12px; font-size: 15px; font-weight: 600; line-height: 1.25; color: var(--label2); }
+  .src { position: absolute; top: 8px; left: 8px; padding: 3px 8px; border-radius: 999px; font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: .07px;
+    color: #fff; background: rgba(0, 0, 0, .45); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  .card .t { margin-top: 8px; font-size: 15px; line-height: 20px; letter-spacing: -.24px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .b { margin-top: 2px; font-size: 13px; line-height: 18px; letter-spacing: -.08px; color: var(--label2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .p { margin-top: 1px; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -.24px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .p span { font-weight: 400; color: var(--label2); }
+  #more { height: 1px; }
 
-  /* Bottom tab bar */
-  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex;
-    padding: 6px var(--gutter) calc(6px + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--paper) 88%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
-    border-top: 1px solid var(--line); }
-  .tabbar button { flex: 1; padding: 10px 0; font: 500 15px/1 var(--display); color: var(--muted); }
-  .tabbar button[aria-selected=true] { color: var(--ink); font-weight: 700; }
-  .tabbar button[aria-selected=true]::after { content: ''; display: block; width: 5px; height: 5px; border-radius: 50%;
-    background: var(--accent); margin: 7px auto 0; }
+  .empty { padding: 72px 32px 0; text-align: center; }
+  .empty svg { width: 52px; height: 52px; color: var(--label3); }
+  .empty h3 { margin: 12px 0 6px; font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: .35px; }
+  .empty p { margin: 0 auto; max-width: 30ch; color: var(--label2); font-size: 15px; line-height: 20px; letter-spacing: -.24px; }
+  .pill { display: inline-block; margin-top: 20px; padding: 8px 18px; border-radius: 999px; background: var(--tint); color: var(--bg); font-size: 15px; font-weight: 600; }
+
+  /* Grouped inset lists */
+  .gh { margin: 22px 32px 7px; font-size: 13px; line-height: 18px; letter-spacing: -.08px; color: var(--label2); text-transform: uppercase; }
+  .group { margin: 0 16px; border-radius: 10px; overflow: hidden; background: var(--cell); }
+  .gf { margin: 7px 32px 0; font-size: 13px; line-height: 18px; letter-spacing: -.08px; color: var(--label2); }
+  .gf textarea { width: 100%; height: 88px; margin-top: 8px; padding: 8px; border-radius: 8px; border: 0; background: var(--cell); color: var(--label);
+    font: 11px/1.4 ui-monospace, Menlo, monospace; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0 16px; text-align: left; background: var(--cell); }
+  .row + .row::before { content: ''; position: absolute; top: 0; right: 0; left: var(--inset, 16px); border-top: .5px solid var(--sep); }
+  .row.icon-row { --inset: 60px; }
+  button.row:active, a.row:active { background: var(--press); }
+  .row-main { flex: 1; min-width: 0; padding: 11px 0; }
+  .row-sub { display: block; margin-top: 1px; font-size: 13px; line-height: 18px; letter-spacing: -.08px; color: var(--label2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-sub .warn { color: var(--orange); }
+  .row-value { flex: none; color: var(--label2); }
+  .row.action { color: var(--tint); }
+  .chev { flex: none; width: 8px; height: 13px; color: var(--label3); }
+  .mono { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: #fff;
+    font-size: 13px; font-weight: 700; letter-spacing: 0; }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
+  .dot.ok { background: var(--green); }
+
+  /* iOS switch */
+  .switch { flex: none; -webkit-appearance: none; appearance: none; position: relative; width: 51px; height: 31px; margin: 0;
+    border-radius: 16px; background: var(--fill); cursor: pointer; transition: background .25s; }
+  .switch::before { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .15), 0 3px 1px rgba(0, 0, 0, .06); transition: transform .25s cubic-bezier(.3, .7, .4, 1); }
+  .switch:checked { background: var(--green); }
+  .switch:checked::before { transform: translateX(20px); }
+
+  /* Tab bar */
+  .tabbar { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; display: flex; justify-content: center;
+    height: var(--tabs); padding-bottom: env(safe-area-inset-bottom); background: var(--bar); border-top: .5px solid var(--sep);
+    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+  .tab { flex: 1; max-width: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    padding-top: 2px; color: #999; font-size: 10px; line-height: 12px; font-weight: 500; letter-spacing: .1px; }
+  @media (prefers-color-scheme: dark) { .tab { color: #8e8e93; } }
+  .tab svg { width: 28px; height: 28px; }
+  .tab .f { fill: none; }
+  .tab[aria-selected=true] { color: var(--tint); }
+  .tab[aria-selected=true] .f { fill: currentColor; }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before { transition: none !important; } }
 </style>
 </head>
 <body>
-<header>
-  <h1 class="masthead">Drops</h1>
-  <button class="bell" id="bell" aria-pressed="false" aria-label="Notifications" aria-controls="pop">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path class="fill" d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
-    </svg>
-  </button>
-  <div class="pop" id="pop" role="status" hidden></div>
-  <div class="dateline" id="checked">Loading…</div>
+<header class="navbar" id="navbar">
+  <span class="nav-title" id="navTitle">Feed</span>
+  <button class="nav-action" id="navAction" hidden></button>
 </header>
-<nav class="brands" aria-label="Brands"><div class="brand-row" id="brands"></div></nav>
+
 <main>
-  <p class="notice" id="notice" hidden></p>
-  <div id="list"></div>
+  <section class="screen" id="feed" role="tabpanel" aria-label="Feed">
+    <h1 class="large">Feed</h1>
+    <div id="filters">
+      <div class="chips" id="srcChips" role="group" aria-label="Filter by where it’s listed">
+        <button class="chip" data-src="drops" aria-pressed="false">Main site</button>
+        <button class="chip" data-src="vinted" aria-pressed="false">Vinted</button>
+        <button class="chip" data-src="ebay" aria-pressed="false">eBay</button>
+        <button class="chip clear" id="clearFilters" hidden>Clear</button>
+      </div>
+      <div class="chips" id="brandChips" role="group" aria-label="Filter by brand"></div>
+    </div>
+    <p class="caption" id="caption">Loading…</p>
+    <button class="banner" id="banner" hidden></button>
+    <div id="list"></div>
+    <div id="more"></div>
+  </section>
+
+  <section class="screen" id="brands" role="tabpanel" aria-label="Brands" hidden>
+    <h1 class="large">Brands</h1>
+    <div class="gh" id="brandCount">Following</div>
+    <div class="group" id="brandList"></div>
+    <p class="gf">Your feed mixes new items from the brands you switch on. Notifications still cover every brand.</p>
+  </section>
+
+  <section class="screen" id="settings" role="tabpanel" aria-label="Settings" hidden>
+    <h1 class="large">Settings</h1>
+    <div id="settingsBody"></div>
+  </section>
 </main>
-<div class="tabbar" role="tablist">
-  <button role="tab" aria-selected="true" data-tab="drops">Shops</button>
-  <button role="tab" aria-selected="false" data-tab="vinted">Vinted</button>
-  <button role="tab" aria-selected="false" data-tab="ebay">eBay</button>
-</div>
+
+<nav class="tabbar" role="tablist" aria-label="Sections">
+  <button class="tab" role="tab" data-tab="feed" aria-selected="true">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+      <rect class="f" x="4.5" y="4.5" width="8" height="8" rx="2.2"/><rect class="f" x="15.5" y="4.5" width="8" height="8" rx="2.2"/>
+      <rect class="f" x="4.5" y="15.5" width="8" height="8" rx="2.2"/><rect class="f" x="15.5" y="15.5" width="8" height="8" rx="2.2"/>
+    </svg>Feed</button>
+  <button class="tab" role="tab" data-tab="brands" aria-selected="false">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+      <path class="f" d="M14 23.2S4.6 17.6 4.6 10.8A4.9 4.9 0 0 1 14 8.4a4.9 4.9 0 0 1 9.4 2.4c0 6.8-9.4 12.4-9.4 12.4z"/>
+    </svg>Brands</button>
+  <button class="tab" role="tab" data-tab="settings" aria-selected="false">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" aria-hidden="true">
+      <circle cx="14" cy="14" r="8.6" stroke-width="3.2" stroke-dasharray="3.2 3.55"/>
+      <circle cx="14" cy="14" r="7" stroke-width="1.7"/><circle cx="14" cy="14" r="2.8" stroke-width="1.7"/>
+    </svg>Settings</button>
+</nav>
 
 <script>
 const VAPID_PUBLIC = 'BKbdPatCQOooWLbwDa80TrJdYou5PkGeIshFQsHgvgGXU6p3ggj7c59Il7JjINbHXGN0XZmIRi99oqVVryrogew';
+const HOWTO = 'https://github.com/syldeville/drop-tracker/blob/main/HOWTOUSE.txt';
+const SOURCES = { drops: 'Main site', vinted: 'Vinted', ebay: 'eBay' };
+const PAGE = 40;
+const COLORS = ['#ff3b30', '#ff9500', '#34c759', '#00a5a0', '#32ade6', '#007aff', '#5856d6', '#af52de', '#ff2d55', '#a2845e', '#8e8e93'];
+const CHEV = '<svg class="chev" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5l-5 5"/></svg>';
+const WARN = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.8a1.6 1.6 0 0 1 1.4.8l7.2 12.6a1.6 1.6 0 0 1-1.4 2.4H2.8a1.6 1.6 0 0 1-1.4-2.4L8.6 2.6a1.6 1.6 0 0 1 1.4-.8zm0 11.4a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2zm0-6.9c-.6 0-1 .5-1 1.1l.3 4.3a.7.7 0 0 0 1.4 0l.3-4.3c0-.6-.4-1.1-1-1.1z"/></svg>';
+
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const countryName = new Intl.DisplayNames(['en-GB'], { type: 'region' });
 // 'DE' -> 🇩🇪 (flag emoji are pairs of regional-indicator letters).
-const flag = cc => `<span role="img" aria-label="Seller in ${esc(countryName.of(cc))}" title="Seller in ${esc(countryName.of(cc))}">${String.fromCodePoint(...[...cc].map(c => 0x1F1A5 + c.charCodeAt(0)))}</span>`;
-const dayName = iso => new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+const flag = cc => `<span role="img" aria-label="Seller in ${esc(countryName.of(cc))}">${String.fromCodePoint(...[...cc].map(c => 0x1F1A5 + c.charCodeAt(0)))}</span>`;
+const hash = s => { let h = 0; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 2654435761); return h >>> 0; };
 
-fetch('drops.json', { cache: 'no-store' }).then(r => r.json()).then(d => {
-  const t = new Date(d.checked);
-  const today = t.toDateString() === new Date().toDateString();
-  $('checked').textContent = `Checked ${today ? 'today' : dayName(d.checked)} at ${t.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })}`;
-  let tab = 'drops', brand = null;
+const dayKey = iso => new Date(iso).toDateString();
+function dayLabel(iso) {
+  const t = new Date(iso), now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
+  if (t.toDateString() === now.toDateString()) return 'Today';
+  if (t.toDateString() === y.toDateString()) return 'Yesterday';
+  return t.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+const timeOf = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+// "Today, 08:03" / "Tomorrow, 08:00" / "3 Nov, 08:03"
+function whenLabel(iso) {
+  const t = new Date(iso).toDateString(), off = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toDateString(); };
+  const day = { [off(0)]: 'Today', [off(-1)]: 'Yesterday', [off(1)]: 'Tomorrow' }[t]
+    || new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return `${day}, ${timeOf(iso)}`;
+}
 
-  const card = x => {
-    // Shopify images accept a width param; Vinted's are signed and already small.
-    const img = x.image && (tab === 'drops' ? x.image + '&width=500' : x.image);
-    const photo = img ? `<div class="photo"><img src="${esc(img)}" loading="lazy" alt=""></div>`
-                      : `<div class="photo text">${esc(x.title)}</div>`;
-    const meta = (x.country && /^[A-Z]{2}$/.test(x.country) ? flag(x.country) + ' ' : '') +
-      [x.price && `<span class="price">${tab === 'drops' ? esc(x.cur || '£') : '£'}${esc(x.price)}</span>`, x.detail && esc(x.detail)].filter(Boolean).join(', ');
-    return `<a class="item" href="${esc(x.url)}" target="_blank" rel="noopener">${photo}
-      <div class="brand">${esc(x.brand)}</div>${img ? `<div class="title">${esc(x.title)}</div>` : ''}
-      ${meta ? `<div class="meta">${meta}</div>` : ''}</a>`;
-  };
+// Which brands you follow lives on this phone only. We store the ones switched off,
+// so a brand newly added to check.mjs shows up switched on.
+const KEY = 'drops.hiddenBrands';
+let hidden = new Set();
+try { hidden = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch {}
+const saveHidden = () => { try { localStorage.setItem(KEY, JSON.stringify([...hidden])); } catch {} };
 
-  const render = () => {
-    document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
-    document.querySelectorAll('[data-brand]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.brand || null) === brand));
+let d = null, loadedAt = 0, tab = 'feed';
+// Feed filters, remembered on this phone. An empty set means "all".
+const FKEY = 'drops.feedFilters';
+let srcSel = new Set(), brandSel = new Set();
+try { const f = JSON.parse(localStorage.getItem(FKEY) || '{}'); srcSel = new Set(f.src || []); brandSel = new Set(f.brand || []); } catch {}
+const saveFilters = () => { try { localStorage.setItem(FKEY, JSON.stringify({ src: [...srcSel], brand: [...brandSel] })); } catch {} };
+const wantSrc = src => !srcSel.size || srcSel.has(src);
+const wantBrand = b => !hidden.has(b) && (!brandSel.size || brandSel.has(b));
+const scrollPos = {};
 
-    if (tab === 'ebay' && !d.ebay) {
-      $('notice').hidden = true;
-      $('list').innerHTML = '<div class="empty"><p>Under construction.</p><p>eBay listings for your brands are coming soon.</p></div>';
-      return;
+/* ---------- Feed ---------- */
+let items = [], shown = 0, lastDay = null, grid = null, dayCounts = {};
+
+function feedItems() {
+  const out = [];
+  for (const src of Object.keys(SOURCES)) {
+    if (!wantSrc(src)) continue;
+    const rank = {};
+    for (const x of d[src] || []) {
+      if (!wantBrand(x.brand)) continue;
+      // Rank within each brand's batch so one busy brand doesn't fill the top of a day.
+      const g = `${src}|${x.brand}|${x.found}`;
+      out.push({ ...x, src, r: rank[g] = (rank[g] || 0) + 1, h: hash(x.id) });
     }
-    const down = Object.entries(d.status).filter(([b, s]) => (!brand || b === brand) && (tab === 'drops' ? !s.ok : s[tab] === false)).map(([b]) => b);
-    $('notice').hidden = !down.length;
-    $('notice').textContent = `Couldn’t check ${down.join(' or ')}${tab === 'vinted' ? ' on Vinted' : tab === 'ebay' ? ' on eBay' : ''} today. It’ll try again tomorrow.`;
+  }
+  return out.sort((a, b) => b.found.localeCompare(a.found) || a.r - b.r || a.h - b.h);
+}
 
-    if (tab === 'drops' && brand && d.status[brand]?.noShop) {
-      $('list').innerHTML = `<div class="empty"><p>No shop to check.</p><p>${esc(brand)} doesn’t sell clothes on its own website. Look in the Vinted tab instead.</p></div>`;
-      return;
+function img(x) {
+  if (!x.image) return null;
+  // Shopify images take a width param; Vinted's and eBay's are signed and already small.
+  return x.image.includes('cdn.shopify.com') ? x.image + (x.image.includes('?') ? '&' : '?') + 'width=500' : x.image;
+}
+
+function card(x) {
+  const src = img(x);
+  const price = x.price && `${esc(x.src === 'drops' ? x.cur || '£' : '£')}${esc(x.price)}`;
+  const extra = [x.country && /^[A-Z]{2}$/.test(x.country) && flag(x.country), x.detail && esc(x.detail)].filter(Boolean).join(' ');
+  return `<a class="card" href="${esc(x.url)}" target="_blank" rel="noopener">
+    <div class="ph"><span class="alt">${esc(x.title)}</span>
+      ${src ? `<img src="${esc(src)}" loading="lazy" alt="" onerror="this.remove()">` : ''}<span class="src">${SOURCES[x.src]}</span></div>
+    <div class="t">${esc(x.title)}</div>
+    <div class="b">${esc(x.brand)}</div>
+    ${price || extra ? `<div class="p">${price || ''}${extra ? `<span>${price ? ' · ' : ''}${extra}</span>` : ''}</div>` : ''}
+  </a>`;
+}
+
+function emptyState(title, text, button) {
+  return `<div class="empty">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4.5" y="4.5" width="8" height="8" rx="2.2"/><rect x="15.5" y="4.5" width="8" height="8" rx="2.2"/><rect x="4.5" y="15.5" width="8" height="8" rx="2.2"/><rect x="15.5" y="15.5" width="8" height="8" rx="2.2"/></svg>
+    <h3>${title}</h3><p>${text}</p>${button || ''}</div>`;
+}
+
+function problems() {
+  const out = [];
+  for (const [b, s] of Object.entries(d.status || {})) {
+    if (!s.ok && !s.noShop) out.push({ brand: b, src: 'drops', why: s.error });
+    if (s.vinted === false) out.push({ brand: b, src: 'vinted' });
+    if (s.ebay === false) out.push({ brand: b, src: 'ebay' });
+  }
+  return out;
+}
+const friendly = why => /403|429/.test(why || '') ? 'The site blocked the check' : /layout/.test(why || '') ? 'The site’s layout changed' : 'Couldn’t reach the site';
+
+function renderFeed() {
+  const brands = Object.keys(d.status || {});
+  const following = brands.filter(b => !hidden.has(b)).length;
+  $('caption').textContent = `${following} of ${brands.length} brands · Checked ${whenLabel(d.checked).replace(/^(Today|Yesterday)/, s => s.toLowerCase()).replace(', ', ' at ')}`;
+
+  renderChips();
+  const down = problems().filter(p => wantBrand(p.brand) && wantSrc(p.src));
+  $('banner').hidden = !down.length;
+  $('banner').innerHTML = `${WARN}<span>Couldn’t check ${esc(down.map(p => `${p.brand} (${SOURCES[p.src]})`).join(', '))} today. It’ll try again at the next check.</span>`;
+
+  items = feedItems(); shown = 0; lastDay = null; grid = null; dayCounts = {};
+  for (const x of items) dayCounts[dayKey(x.found)] = (dayCounts[dayKey(x.found)] || 0) + 1;
+  $('list').innerHTML = '';
+  if (!following) {
+    $('list').innerHTML = emptyState('No brands followed', 'Choose the brands you care about and their new items will appear here.', '<button class="pill" data-goto="brands">Choose Brands</button>');
+  } else if (!items.length && (srcSel.size || brandSel.size)) {
+    $('list').innerHTML = emptyState('No matches', 'Nothing new matches these filters yet.', '<button class="pill" id="clearEmpty">Clear Filters</button>');
+    $('clearEmpty').onclick = clearFilters;
+  } else if (!items.length) {
+    $('list').innerHTML = emptyState('Nothing new yet', 'New items from the brands you follow appear here after the daily check.');
+  }
+  more();
+}
+
+function more() {
+  const end = Math.min(shown + PAGE, items.length);
+  for (; shown < end; shown++) {
+    const x = items[shown], k = dayKey(x.found);
+    if (k !== lastDay) {
+      lastDay = k;
+      const sec = document.createElement('section');
+      sec.className = 'day';
+      sec.innerHTML = `<h2>${esc(dayLabel(x.found))}<span>${dayCounts[k]} new</span></h2><div class="grid"></div>`;
+      $('list').append(sec);
+      grid = sec.lastChild;
     }
-    const items = (d[tab] || []).filter(x => !brand || x.brand === brand);
-    if (!items.length) {
-      const who = brand || 'your brands';
-      $('list').innerHTML = `<div class="empty"><p>Nothing new yet.</p><p>New ${tab === 'drops' ? 'arrivals' : tab === 'ebay' ? 'eBay listings' : 'Vinted listings'} from ${esc(who)} show up here after the daily check.</p></div>`;
-      return;
-    }
-    if (tab !== 'drops') { $('list').innerHTML = `<div class="grid">${items.map(card).join('')}</div>`; return; }
-    const days = {};
-    for (const x of items) (days[dayName(x.found)] ||= []).push(x);
-    $('list').innerHTML = Object.entries(days).map(([day, xs]) =>
-      `<h2>${esc(day)}<span>${xs.length} new</span></h2><div class="grid">${xs.map(card).join('')}</div>`).join('');
-  };
+    grid.insertAdjacentHTML('beforeend', card(x));
+  }
+}
+new IntersectionObserver(es => { if (es[0].isIntersecting && d && shown < items.length) more(); }, { rootMargin: '1200px 0px' }).observe($('more'));
 
-  $('brands').innerHTML = ['', ...Object.keys(d.status)].map(b => `<button data-brand="${esc(b)}">${esc(b || 'All')}</button>`).join('');
-  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); scrollTo(0, 0); });
-  $('brands').onclick = e => { const b = e.target.closest('button'); if (b) { brand = b.dataset.brand || null; render(); } };
-  render();
-}).catch(() => $('checked').textContent = 'Couldn’t load drops. Close and reopen the app to try again.');
+function renderChips() {
+  const followed = Object.keys(d.status || {}).filter(b => !hidden.has(b));
+  // A brand you stop following drops out of the brand filter too.
+  if ([...brandSel].some(b => !followed.includes(b))) { brandSel = new Set([...brandSel].filter(b => followed.includes(b))); saveFilters(); }
+  $('srcChips').querySelectorAll('[data-src]').forEach(c => c.setAttribute('aria-pressed', srcSel.has(c.dataset.src)));
+  $('brandChips').innerHTML = followed.map(b => `<button class="chip" data-brand="${esc(b)}" aria-pressed="${brandSel.has(b)}">${esc(b)}</button>`).join('');
+  $('brandChips').hidden = followed.length < 2;
+  $('clearFilters').hidden = !srcSel.size && !brandSel.size;
+}
+function applyFilters() {
+  saveFilters();
+  const sx = $('brandChips').scrollLeft;
+  renderFeed();
+  $('brandChips').scrollLeft = sx;
+  // Keep the chips in view rather than leaving you deep in a list that just changed.
+  const top = $('filters').offsetTop - $('navbar').offsetHeight - 8;
+  if (scrollY > top) scrollTo(0, top);
+}
+function clearFilters() { srcSel.clear(); brandSel.clear(); applyFilters(); }
+$('filters').onclick = e => {
+  const c = e.target.closest('.chip');
+  if (!c) return;
+  if (c === $('clearFilters')) return clearFilters();
+  const [set, key] = c.dataset.src ? [srcSel, c.dataset.src] : [brandSel, c.dataset.brand];
+  set.has(key) ? set.delete(key) : set.add(key);
+  applyFilters();
+};
+$('banner').onclick = () => show('settings');
 
-// Notifications: iOS only allows these once the page is added to the home screen.
-const pushable = 'serviceWorker' in navigator && 'PushManager' in window;
+/* ---------- Brands ---------- */
+function monogram(name) {
+  const words = name.replace(/^the\s+/i, '').split(/[\s.&]+/).filter(Boolean);
+  return (words.length > 1 ? words[0][0] + words[1][0] : words[0][0]).toUpperCase();
+}
+
+function renderBrands() {
+  const names = Object.keys(d.status || {});
+  const counts = {};
+  for (const src of Object.keys(SOURCES)) for (const x of d[src] || []) counts[x.brand] = (counts[x.brand] || 0) + 1;
+  $('brandList').innerHTML = names.map((b, i) => {
+    const s = d.status[b];
+    const srcs = [!s.noShop && (s.ok ? 'Main site' : '<span class="warn">Main site not checked</span>'),
+      s.vinted !== undefined && (s.vinted ? 'Vinted' : '<span class="warn">Vinted not checked</span>'),
+      s.ebay !== undefined && (s.ebay ? 'eBay' : '<span class="warn">eBay not checked</span>')].filter(Boolean);
+    return `<label class="row icon-row">
+      <span class="mono" style="background:${COLORS[i % COLORS.length]}" aria-hidden="true">${esc(monogram(b))}</span>
+      <span class="row-main">${esc(b)}<span class="row-sub">${srcs.join(' · ')}${counts[b] ? ` · ${counts[b]} items` : ''}</span></span>
+      <input type="checkbox" class="switch" role="switch" data-brand="${esc(b)}" ${hidden.has(b) ? '' : 'checked'} aria-label="Follow ${esc(b)}">
+    </label>`;
+  }).join('');
+  updateBrandCount();
+}
+
+function updateBrandCount() {
+  const names = Object.keys(d.status || {});
+  const on = names.filter(b => !hidden.has(b)).length;
+  $('brandCount').textContent = `Following ${on} of ${names.length}`;
+  if (tab === 'brands') { $('navAction').hidden = false; $('navAction').textContent = on === names.length ? 'Deselect All' : 'Select All'; }
+}
+
+$('brandList').addEventListener('change', e => {
+  const b = e.target.dataset.brand;
+  if (!b) return;
+  e.target.checked ? hidden.delete(b) : hidden.add(b);
+  saveHidden(); updateBrandCount(); scrollPos.feed = 0; renderFeed();
+});
+$('navAction').onclick = () => {
+  if (tab !== 'brands') return;
+  const names = Object.keys(d.status || {});
+  hidden = names.every(b => !hidden.has(b)) ? new Set(names) : new Set();
+  saveHidden(); renderBrands(); scrollPos.feed = 0; renderFeed();
+};
+
+/* ---------- Settings ---------- */
+const pushable = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+let sub = null, copyNote = '';
 if (pushable) {
   navigator.serviceWorker.register('sw.js');
-  $('bell').setAttribute('aria-pressed', Notification.permission === 'granted');
+  navigator.serviceWorker.ready.then(r => r.pushManager.getSubscription()).then(s => { sub = s; if (d) renderSettings(); }).catch(() => {});
 }
-let sub = null;
-const showPop = (title, text, copy) => {
-  $('pop').innerHTML = `<strong>${title}</strong>${text}${copy ? '<button id="copy">Copy setup code</button>' : ''}`;
-  $('pop').hidden = false;
-  if (copy) $('copy').onclick = async () => {
-    try { await navigator.clipboard.writeText(JSON.stringify(sub)); $('copy').textContent = 'Copied'; }
-    catch { $('copy').outerHTML = `<textarea readonly style="width:100%;height:80px;margin-top:10px;font:11px ui-monospace,monospace">${esc(JSON.stringify(sub))}</textarea>`; }
-  };
-};
-$('bell').onclick = async e => {
-  e.stopPropagation();
-  if (!$('pop').hidden) { $('pop').hidden = true; return; }
-  if (!pushable) return showPop('Add to Home Screen first', 'In Safari, tap Share, then Add to Home Screen. Open Drops from there to turn on notifications.');
-  if (await Notification.requestPermission() !== 'granted') return showPop('Notifications are off', 'Turn them on in Settings, Notifications, Drops, then tap the bell again.');
-  const reg = await navigator.serviceWorker.ready;
-  const key = Uint8Array.from(atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-  sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-  $('bell').setAttribute('aria-pressed', true);
-  $('bell').classList.remove('ring'); void $('bell').offsetWidth; $('bell').classList.add('ring');
-  showPop('You’re on the list', 'You’ll get a notification when something new drops. First time on this phone? Copy the setup code into the PUSH_SUBSCRIPTION secret on GitHub.', true);
-};
-document.addEventListener('click', e => { if (!$('pop').contains(e.target)) $('pop').hidden = true; });
+
+function nextCheck() {
+  const n = new Date(); n.setUTCHours(8, 0, 0, 0);
+  if (n <= new Date()) n.setUTCDate(n.getUTCDate() + 1);
+  return n.toISOString();
+}
+
+function renderSettings() {
+  const perm = pushable ? Notification.permission : 'unsupported';
+  const on = perm === 'granted' && sub;
+  let rows, foot;
+  if (!pushable) {
+    rows = `<div class="row"><span class="row-main">Notifications</span><span class="row-value">Unavailable</span></div>`;
+    foot = 'Add Drops to your Home Screen first: in Safari, tap Share, then Add to Home Screen. Open it from there to turn on notifications.';
+  } else if (perm === 'denied') {
+    rows = `<div class="row"><span class="row-main">Notifications</span><span class="row-value">Off</span></div>`;
+    foot = 'Notifications are blocked. Turn them on in your phone’s Settings › Notifications › Drops, then come back here.';
+  } else if (on) {
+    rows = `<div class="row"><span class="row-main">Notifications</span><span class="row-value">On</span></div>
+      <button class="row action" id="copy"><span class="row-main">Copy Setup Code</span></button>`;
+    foot = copyNote || 'First time on this phone? Paste the setup code into the PUSH_SUBSCRIPTION secret on GitHub. Notifications cover every brand you track.';
+  } else {
+    rows = `<button class="row action" id="turnOn"><span class="row-main">Turn On Notifications</span></button>`;
+    foot = 'Get a notification when the daily check finds something new.';
+  }
+
+  const down = problems();
+  const status = down.length
+    ? down.map(p => `<div class="row"><span class="dot" aria-hidden="true"></span><span class="row-main">${esc(p.brand)}<span class="row-sub">${SOURCES[p.src]} · ${p.src === 'drops' ? friendly(p.why) : 'Couldn’t load listings'}</span></span></div>`).join('')
+    : `<div class="row"><span class="dot ok" aria-hidden="true"></span><span class="row-main">Everything checked</span></div>`;
+
+  $('settingsBody').innerHTML = `
+    <div class="gh">Notifications</div><div class="group">${rows}</div><div class="gf">${foot}</div>
+    <div class="gh">Daily Check</div><div class="group">
+      <div class="row"><span class="row-main">Last checked</span><span class="row-value">${esc(whenLabel(d.checked))}</span></div>
+      <div class="row"><span class="row-main">Next check</span><span class="row-value">${esc(whenLabel(nextCheck()))}</span></div>
+    </div><div class="gf">Drops checks each brand’s own shop, Vinted UK and eBay UK once a day.</div>
+    <div class="gh">Status</div><div class="group">${status}</div>
+    ${down.length ? '<div class="gf">These are tried again at the next daily check.</div>' : ''}
+    <div class="gh">About</div><div class="group">
+      <a class="row" href="${HOWTO}" target="_blank" rel="noopener"><span class="row-main">How to Use Drops</span>${CHEV}</a>
+    </div><div class="gf">To add a brand, edit the list in check.mjs on GitHub. It appears in Brands after the next check.</div>`;
+
+  if ($('turnOn')) $('turnOn').onclick = turnOn;
+  if ($('copy')) $('copy').onclick = copy;
+}
+
+async function turnOn() {
+  if (await Notification.requestPermission() !== 'granted') return renderSettings();
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const key = Uint8Array.from(atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    copyNote = 'You’re on the list. First time on this phone? Copy the setup code into the PUSH_SUBSCRIPTION secret on GitHub.';
+  } catch { copyNote = 'Couldn’t turn on notifications. Close Drops and try again.'; }
+  renderSettings();
+}
+
+async function copy() {
+  const code = JSON.stringify(sub);
+  try { await navigator.clipboard.writeText(code); copyNote = 'Copied. Paste it into the PUSH_SUBSCRIPTION secret on GitHub.'; }
+  catch { copyNote = `Copy this code into the PUSH_SUBSCRIPTION secret on GitHub:<textarea readonly>${esc(code)}</textarea>`; }
+  renderSettings();
+}
+
+/* ---------- Tabs and navigation bar ---------- */
+const TITLES = { feed: 'Feed', brands: 'Brands', settings: 'Settings' };
+function show(t) {
+  if (t === tab) { scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  scrollPos[tab] = scrollY;
+  tab = t;
+  for (const id of Object.keys(TITLES)) $(id).hidden = id !== t;
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
+  document.body.classList.toggle('grouped', t !== 'feed');
+  $('navTitle').textContent = TITLES[t];
+  $('navAction').hidden = t !== 'brands';
+  if (d && t === 'brands') updateBrandCount();
+  scrollTo(0, scrollPos[t] || 0);
+  onScroll();
+}
+document.querySelector('.tabbar').onclick = e => { const b = e.target.closest('.tab'); if (b) show(b.dataset.tab); };
+document.addEventListener('click', e => { const g = e.target.closest('[data-goto]'); if (g) show(g.dataset.goto); });
+
+function onScroll() {
+  const title = $(tab).querySelector('.large');
+  $('navbar').classList.toggle('collapsed', title.getBoundingClientRect().bottom < $('navbar').offsetHeight + 4);
+}
+let ticking = false;
+addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; onScroll(); }); } }, { passive: true });
+
+/* ---------- Data ---------- */
+async function load() {
+  try {
+    d = await (await fetch('drops.json', { cache: 'no-store' })).json();
+    loadedAt = Date.now();
+  } catch {
+    if (!d) $('caption').textContent = 'Couldn’t load drops. Close and reopen the app to try again.';
+    return;
+  }
+  $('srcChips').querySelector('[data-src=ebay]').hidden = !d.ebay;
+  if (!d.ebay) srcSel.delete('ebay');
+  renderFeed();
+  renderBrands();
+  renderSettings();
+}
+load();
+// The check runs once a day; pick up a fresh one when the app comes back after a while.
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - loadedAt > 15 * 60e3) load(); });
 </script>
 </body>
 </html>
