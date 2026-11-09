@@ -58,16 +58,40 @@
 
   .large { margin: 0; padding: 3px 16px 8px; font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: .37px; }
 
-  /* Filter chips: none picked in a row means everything in that row */
-  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px; scrollbar-width: none; }
-  .chips::-webkit-scrollbar { display: none; }
-  .chips + .chips { margin-top: 4px; }
-  .chip { flex: none; height: 32px; padding: 0 14px; border-radius: 16px; background: var(--fill);
-    font-size: 15px; font-weight: 500; letter-spacing: -.24px; white-space: nowrap; transition: background .15s, color .15s; }
-  .chip[aria-pressed=true] { background: var(--tint); color: var(--bg); }
-  .chip[hidden] { display: none; }
-  .chip.clear { margin-left: auto; padding: 0 2px 0 8px; background: none; color: var(--tint); }
-  .chip.clear[hidden] { display: block; visibility: hidden; }
+  .nav-lead { position: absolute; left: 6px; bottom: 0; width: 44px; height: 44px; display: grid; place-items: center; color: var(--tint); }
+  .nav-lead[hidden] { display: none; }
+  .nav-lead svg { width: 24px; height: 24px; }
+  .nav-lead .badge { position: absolute; top: 9px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--tint);
+    box-shadow: 0 0 0 2px var(--bg); }
+  .nav-lead .badge[hidden] { display: none; }
+
+  /* Active filters, shown under the title while the drawer is closed */
+  .active { display: flex; align-items: center; gap: 12px; margin: 2px 16px 0; padding: 9px 12px 9px 14px; border-radius: 12px; background: var(--fill); }
+  .active[hidden] { display: none; }
+  .active > button:first-child { flex: 1; min-width: 0; text-align: left; font-size: 15px; letter-spacing: -.24px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .active > button:last-child { flex: none; color: var(--tint); font-size: 15px; }
+
+  /* Filter drawer: slides in from the left, over a dimmed feed */
+  .scrim { position: fixed; z-index: 8; inset: 0; background: rgba(0, 0, 0, .4); opacity: 0; visibility: hidden;
+    transition: opacity .3s, visibility 0s .3s; }
+  .drawer { position: fixed; z-index: 9; top: 0; bottom: 0; left: 0; width: min(340px, 86vw); display: flex; flex-direction: column;
+    background: var(--grouped); box-shadow: 0 0 40px rgba(0, 0, 0, .25); transform: translateX(-105%); visibility: hidden;
+    transition: transform .32s cubic-bezier(.3, .7, .4, 1), visibility 0s .32s; }
+  body.drawer-open .scrim { opacity: 1; visibility: visible; transition: opacity .3s; }
+  body.drawer-open .drawer { transform: none; visibility: visible; transition: transform .32s cubic-bezier(.3, .7, .4, 1); }
+  body.drawer-open { overflow: hidden; }
+  .drawer-head { position: relative; flex: none; display: flex; align-items: center; justify-content: space-between;
+    height: calc(env(safe-area-inset-top) + 56px); padding: env(safe-area-inset-top) 16px 0; border-bottom: .5px solid var(--sep); background: var(--bar); }
+  .drawer-head h2 { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; margin: 0; display: grid; place-items: center;
+    font-size: 17px; font-weight: 600; pointer-events: none; }
+  .drawer-head button { position: relative; color: var(--tint); }
+  .drawer-head .done { font-weight: 600; }
+  .drawer-head button:disabled { color: var(--label3); }
+  .drawer-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(env(safe-area-inset-bottom) + 24px); }
+  .drawer .gh:first-child { margin-top: 18px; }
+  .check { flex: none; width: 18px; height: 18px; color: var(--tint); visibility: hidden; }
+  [aria-pressed=true] > .check { visibility: visible; }
   .caption { margin: 10px 16px 0; font-size: 13px; line-height: 18px; letter-spacing: -.08px; color: var(--label2); }
 
   .banner { display: flex; gap: 10px; align-items: flex-start; margin: 14px 16px 0; padding: 11px 14px; border-radius: 12px;
@@ -153,6 +177,10 @@
 </head>
 <body>
 <header class="navbar" id="navbar">
+  <button class="nav-lead" id="burger" aria-label="Filters" aria-controls="drawer" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg>
+    <span class="badge" id="burgerBadge" hidden></span>
+  </button>
   <span class="nav-title" id="navTitle">Feed</span>
   <button class="nav-action" id="navAction" hidden></button>
 </header>
@@ -160,14 +188,9 @@
 <main>
   <section class="screen" id="feed" role="tabpanel" aria-label="Feed">
     <h1 class="large">Feed</h1>
-    <div id="filters">
-      <div class="chips" id="srcChips" role="group" aria-label="Filter by where it’s listed">
-        <button class="chip" data-src="drops" aria-pressed="false">Main site</button>
-        <button class="chip" data-src="vinted" aria-pressed="false">Vinted</button>
-        <button class="chip" data-src="ebay" aria-pressed="false">eBay</button>
-        <button class="chip clear" id="clearFilters" hidden>Clear</button>
-      </div>
-      <div class="chips" id="brandChips" role="group" aria-label="Filter by brand"></div>
+    <div class="active" id="activeFilters" hidden>
+      <button id="filterSummary" aria-controls="drawer"></button>
+      <button id="clearFilters">Clear</button>
     </div>
     <p class="caption" id="caption">Loading…</p>
     <button class="banner" id="banner" hidden></button>
@@ -187,6 +210,22 @@
     <div id="settingsBody"></div>
   </section>
 </main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <div class="drawer-head">
+    <button id="drawerClear">Clear</button>
+    <h2 id="drawerTitle">Filters</h2>
+    <button class="done" id="drawerDone">Done</button>
+  </div>
+  <div class="drawer-body" id="drawerBody">
+    <div class="gh">Where it’s listed</div>
+    <div class="group" id="srcList"></div>
+    <div class="gh">Brand</div>
+    <div class="group" id="brandFilterList"></div>
+    <p class="gf">Pick as many as you like. With none picked, you see all of them. Only brands you follow are listed.</p>
+  </div>
+</aside>
 
 <nav class="tabbar" role="tablist" aria-label="Sections">
   <button class="tab" role="tab" data-tab="feed" aria-selected="true">
@@ -313,7 +352,7 @@ function renderFeed() {
   const following = brands.filter(b => !hidden.has(b)).length;
   $('caption').textContent = `${following} of ${brands.length} brands · Checked ${whenLabel(d.checked).replace(/^(Today|Yesterday)/, s => s.toLowerCase()).replace(', ', ' at ')}`;
 
-  renderChips();
+  renderFilters();
   const down = problems().filter(p => wantBrand(p.brand) && wantSrc(p.src));
   $('banner').hidden = !down.length;
   $('banner').innerHTML = `${WARN}<span>Couldn’t check ${esc(down.map(p => `${p.brand} (${SOURCES[p.src]})`).join(', '))} today. It’ll try again at the next check.</span>`;
@@ -349,33 +388,69 @@ function more() {
 }
 new IntersectionObserver(es => { if (es[0].isIntersecting && d && shown < items.length) more(); }, { rootMargin: '1200px 0px' }).observe($('more'));
 
-function renderChips() {
+const CHECK = '<svg class="check" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 7 13.5 15 4.5"/></svg>';
+const filterRow = (attr, key, label, on) =>
+  `<button class="row" ${attr}="${esc(key)}" aria-pressed="${on}"><span class="row-main">${esc(label)}</span>${CHECK}</button>`;
+
+function renderFilters() {
   const followed = Object.keys(d.status || {}).filter(b => !hidden.has(b));
   // A brand you stop following drops out of the brand filter too.
   if ([...brandSel].some(b => !followed.includes(b))) { brandSel = new Set([...brandSel].filter(b => followed.includes(b))); saveFilters(); }
-  $('srcChips').querySelectorAll('[data-src]').forEach(c => c.setAttribute('aria-pressed', srcSel.has(c.dataset.src)));
-  $('brandChips').innerHTML = followed.map(b => `<button class="chip" data-brand="${esc(b)}" aria-pressed="${brandSel.has(b)}">${esc(b)}</button>`).join('');
-  $('brandChips').hidden = followed.length < 2;
-  $('clearFilters').hidden = !srcSel.size && !brandSel.size;
+  const srcs = Object.keys(SOURCES).filter(k => k !== 'ebay' || d.ebay);
+  $('srcList').innerHTML = filterRow('data-src', '', 'All places', !srcSel.size) +
+    srcs.map(k => filterRow('data-src', k, SOURCES[k], srcSel.has(k))).join('');
+  $('brandFilterList').innerHTML = filterRow('data-brand', '', 'All brands', !brandSel.size) +
+    followed.map(b => filterRow('data-brand', b, b, brandSel.has(b))).join('');
+
+  const active = srcSel.size || brandSel.size;
+  $('burgerBadge').hidden = !active;
+  $('burger').setAttribute('aria-label', active ? 'Filters, some on' : 'Filters');
+  $('drawerClear').disabled = !active;
+  $('activeFilters').hidden = !active;
+  const brandText = brandSel.size > 2 ? `${brandSel.size} brands` : [...brandSel].join(', ');
+  $('filterSummary').textContent = [[...srcSel].map(k => SOURCES[k]).join(', '), brandText].filter(Boolean).join(' · ');
 }
+
 function applyFilters() {
   saveFilters();
-  const sx = $('brandChips').scrollLeft;
+  const st = $('drawerBody').scrollTop;
   renderFeed();
-  $('brandChips').scrollLeft = sx;
-  // Keep the chips in view rather than leaving you deep in a list that just changed.
-  const top = $('filters').offsetTop - $('navbar').offsetHeight - 8;
-  if (scrollY > top) scrollTo(0, top);
+  $('drawerBody').scrollTop = st;
+  scrollTo(0, 0);
 }
 function clearFilters() { srcSel.clear(); brandSel.clear(); applyFilters(); }
-$('filters').onclick = e => {
-  const c = e.target.closest('.chip');
-  if (!c) return;
-  if (c === $('clearFilters')) return clearFilters();
-  const [set, key] = c.dataset.src ? [srcSel, c.dataset.src] : [brandSel, c.dataset.brand];
-  set.has(key) ? set.delete(key) : set.add(key);
+$('drawer').addEventListener('click', e => {
+  const r = e.target.closest('.row');
+  if (!r) return;
+  const [set, key] = 'src' in r.dataset ? [srcSel, r.dataset.src] : [brandSel, r.dataset.brand];
+  if (!key) set.clear(); else set.has(key) ? set.delete(key) : set.add(key);
   applyFilters();
-};
+});
+
+let lastFocus = null;
+function openDrawer() {
+  lastFocus = document.activeElement;
+  document.body.classList.add('drawer-open');
+  $('burger').setAttribute('aria-expanded', true);
+  for (const el of [$('navbar'), document.querySelector('main'), document.querySelector('.tabbar')]) el.inert = true;
+  $('drawerDone').focus({ preventScroll: true });
+}
+function closeDrawer() {
+  if (!document.body.classList.contains('drawer-open')) return;
+  document.body.classList.remove('drawer-open');
+  $('burger').setAttribute('aria-expanded', false);
+  for (const el of [$('navbar'), document.querySelector('main'), document.querySelector('.tabbar')]) el.inert = false;
+  lastFocus?.focus({ preventScroll: true });
+}
+$('burger').onclick = $('filterSummary').onclick = openDrawer;
+$('drawerDone').onclick = $('scrim').onclick = closeDrawer;
+$('drawerClear').onclick = clearFilters;
+$('clearFilters').onclick = clearFilters;
+addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+// Swipe the drawer left to close it, as on iOS.
+let swipeX = null;
+$('drawer').addEventListener('touchstart', e => { swipeX = e.touches[0].clientX; }, { passive: true });
+$('drawer').addEventListener('touchend', e => { if (swipeX !== null && swipeX - e.changedTouches[0].clientX > 60) closeDrawer(); swipeX = null; }, { passive: true });
 $('banner').onclick = () => show('settings');
 
 /* ---------- Brands ---------- */
@@ -505,6 +580,7 @@ function show(t) {
   document.body.classList.toggle('grouped', t !== 'feed');
   $('navTitle').textContent = TITLES[t];
   $('navAction').hidden = t !== 'brands';
+  $('burger').hidden = t !== 'feed';
   if (d && t === 'brands') updateBrandCount();
   scrollTo(0, scrollPos[t] || 0);
   onScroll();
@@ -528,7 +604,6 @@ async function load() {
     if (!d) $('caption').textContent = 'Couldn’t load drops. Close and reopen the app to try again.';
     return;
   }
-  $('srcChips').querySelector('[data-src=ebay]').hidden = !d.ebay;
   if (!d.ebay) srcSel.delete('ebay');
   renderFeed();
   renderBrands();
